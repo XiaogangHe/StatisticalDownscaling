@@ -47,19 +47,26 @@ contour.spT<-function(x, surface="Mean", time=c(1), ...){
 }
 
 SEUSData <- read.table("~/Dropbox/Study/Princeton_2014-2015_Spring/CEE509/Data/Input/SEUSData_16_syn.txt",header=TRUE)
-preMon <- c(8)  # Select July as the predict month
-preYear <- c(2001)
-DataSelMon <- spT.subset(data=SEUSData, var.name=c("Month"),s=preMon)
 
-DataFit <- subset(DataSelMon, with(DataSelMon, (Year==preYear)))	
-
-post.gp <- spT.Gibbs(formula=NLDAS_prec ~ NLDAS_prec_UpDown, 
+for(i in 1982:2009){
+  preYear <- c(i)
+  preMon <- c(8)  # Select July as the predict month
+  DataSelMon <- spT.subset(data=SEUSData, var.name=c("Month"),s=preMon)
+  
+  DataFit <- subset(DataSelMon, with(DataSelMon, (Year==preYear)))	
+  post.gp <- spT.Gibbs(formula=NLDAS_prec ~ NLDAS_prec_UpDown, 
                      data=DataFit, model="GP", coords=~Longitude+Latitude, 
-                     nItr=5000, nBurn=1000, 
+                     nItr=500, nBurn=100, 
                      #scale.transform="LOG", 
                      spatial.decay=spT.decay(distribution=Gamm(2,1), tuning=1.5))
                      #spatial.decay=spT.decay(distribution="FIXED"))
-
-plot(post.gp)
-plot(post.gp, surface="Mean", title=FALSE)
-
+  
+  plot(post.gp)
+  plot(post.gp, surface="Mean", title=FALSE)
+  
+  write(fitted(post.gp)$Mean, file = sprintf("NLDAS_fitted_Mean_%s%02d.txt",preYear,preMon),ncolumns=1)
+  
+  sink(file = sprintf("Summary_fit_%s%02d.txt",preYear,preMon))
+  spT.validation(DataFit$NLDAS_prec,fitted(post.gp)$Mean) 
+  sink()
+}
