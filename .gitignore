@@ -1,2 +1,4 @@
 *.R~
+*.py~
 .Rproj.user
+.Rhistory
