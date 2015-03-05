@@ -46,11 +46,11 @@ contour.spT<-function(x, surface="Mean", time=c(1), ...){
   contour(xyz, ...) 
 }
 
-SEUSData <- read.table("~/Dropbox/Study/Princeton_2014-2015_Spring/CEE509/Data/Input/SEUSData_16_syn.txt",header=TRUE)
+SEUSData <- read.table("~/Dropbox/Study/Princeton_2014-2015_Spring/CEE509/Data/Input/SEUSData_16_syn_0.25-0.125.txt",header=TRUE)
 
 for(i in 1982:2009){
   preYear <- c(i)
-  preMon <- c(8)  # Select July as the predict month
+  preMon <- c(7)  # Select July as the predict month
   DataSelMon <- spT.subset(data=SEUSData, var.name=c("Month"),s=preMon)
   
   DataFit <- subset(DataSelMon, with(DataSelMon, (Year==preYear)))	
@@ -64,9 +64,10 @@ for(i in 1982:2009){
   plot(post.gp)
   plot(post.gp, surface="Mean", title=FALSE)
   
-  write(fitted(post.gp)$Mean, file = sprintf("NLDAS_fitted_Mean_%s%02d.txt",preYear,preMon),ncolumns=1)
+  write(fitted(post.gp)$Mean, file = sprintf("../Data/Output/NLDAS_fitted_Mean_%s%02d_0.25-0.125.txt",preYear,preMon),ncolumns=1)
+  write(fitted(post.gp)$SD, file = sprintf("../Data/Output/NLDAS_fitted_SD_%s%02d_0.25-0.125.txt",preYear,preMon),ncolumns=1)
   
-  sink(file = sprintf("Summary_fit_%s%02d.txt",preYear,preMon))
+  sink(file = sprintf("../Data/Output/Summary_fit_%s%02d_0.25-0.125.txt",preYear,preMon))
   spT.validation(DataFit$NLDAS_prec,fitted(post.gp)$Mean) 
   sink()
 }
