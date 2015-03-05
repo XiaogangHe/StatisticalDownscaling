@@ -16,7 +16,8 @@ def blockshaped(arr, nrows, ncols):
         return (arr.reshape(h//nrows, nrows, -1, ncols).swapaxes(1,2).reshape(-1, nrows, ncols))
 
 def     disaggregate(inArr, gridNo):
-        out = np.repeat(np.repeat(inArr,[gridNo,gridNo],axis=1),[gridNo,gridNo],axis=0)
+        out = np.repeat(np.repeat(inArr, gridNo, axis=1), gridNo, axis=0)
+        #out = np.repeat(np.repeat(inArr,[gridNo,gridNo],axis=1),[gridNo,gridNo],axis=0)
         return out
 
 ##### Prepare the data for spTimer 
@@ -31,6 +32,11 @@ eLat		= 16
 sLon		= 0
 eLon		= 16
 #eLon		= 73
+res_tar		= 0.125					# Target resolution
+res_up		= 0.25					# Upscaled resolution
+ratio_up	= res_up/res_tar			# Number of smaller grids within big grid box
+ngrid_Up	= 16/ratio_up
+
 
 ##### Read the data 
 
@@ -53,8 +59,8 @@ sp_lat			= np.repeat(NLDAS_lat,NLDAS_nlon*nmon)
 sp_year			= np.array([[year.tolist()]*NLDAS_ngrid]).squeeze().reshape(-1)
 print			NLDAS_prec_YM.shape
 sp_prec_NLDAS_YM	= NLDAS_prec_YM.reshape(-1)
-sp_prec_NLDAS_YM_UP	= np.array([blockshaped(NLDAS_prec_YM[:,:,i], 8, 8).mean(-1).mean(-1).reshape(2,2) for i in range(334)])
-temp			= np.array([disaggregate(sp_prec_NLDAS_YM_UP[i],8) for i in range(334)])
+sp_prec_NLDAS_YM_UP	= np.array([blockshaped(NLDAS_prec_YM[:,:,i], ratio_up, ratio_up).mean(-1).mean(-1).reshape(ngrid_Up, ngrid_Up) for i in range(334)])
+temp			= np.array([disaggregate(sp_prec_NLDAS_YM_UP[i], ratio_up) for i in range(334)])
 sp_prec_NLDAS_YM_UpDown	= np.transpose(temp, (1, 2, 0)).reshape(-1)
 print			sp_prec_NLDAS_YM_UpDown.shape
 
