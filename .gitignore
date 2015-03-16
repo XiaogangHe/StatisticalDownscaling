@@ -1,4 +1,6 @@
 *.R~
 *.py~
+*.pyc
 .Rproj.user
 .Rhistory
+*.pdf
