@@ -2,6 +2,7 @@
 
 * variable Name list = ['apcpsfc', 'cape180_0mb', 'pressfc', 'spfh2m', 'tmp2m', 'ugrd10m', 'vgrd10m']
 varName='cape180_0mb'
+res='1deg'
 
 'set lat 25.0625 35.0625'
 'set lon -88.9375 -80.0625'
@@ -12,7 +13,7 @@ varName='cape180_0mb'
 'define downMask=maskout(down,mask-0.1)'
 'set lat 25.0625 34.9375'
 'set gxout fwrite'
-'set fwrite '%varName%'_UpDown_2011_JJA_SEUS_bi-linear.bin'
+'set fwrite '%varName%'_UpDown_'%res%'_2011_JJA_SEUS_bi-linear.bin'
 'd downMask'
 'disable fwrite'
 'quit'
