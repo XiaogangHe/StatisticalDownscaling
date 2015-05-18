@@ -4,6 +4,10 @@ import	numpy               as	np
 import	matplotlib.pyplot   as	plt
 import  pandas.rpy.common   as  com
 from    rpy2.robjects       import r
+from    rpy2.robjects.packages  import importr
+
+##### Load R packages
+importr('ncf')
 
 x = r("x <- expand.grid(1:20, 1:5)[,1]")
 y = r("y <- expand.grid(1:20, 1:5)[,2]")
