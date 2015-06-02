@@ -67,7 +67,6 @@ prec_prediction = DataFrame({
                 'prec_fine': np.array([-9.99e+08]*nlat_fine*nlon_fine*ntime)
                 })
 
-'''
 valid_grid = (features['prec_disagg']>-9.99e+08) & (features['gtopomean']>-9.99e+08)
 features_land = features[valid_grid]
 prec_fine_land = prec_fine[valid_grid]
@@ -78,15 +77,16 @@ features_land_train, features_land_test, prec_fine_land_train, prec_fine_land_te
 prec_fine_land_label_train, prec_fine_land_label_test = train_test_split(prec_fine_land_label, test_size=0.33, random_state=42)
 
 reg		= RandomForestRegressor(n_estimators=50, bootstrap=True, n_jobs=6)
-clf		= RandomForestClassifier(n_estimators=50, bootstrap=True, n_jobs=6)
+#clf		= RandomForestClassifier(n_estimators=50, bootstrap=True, n_jobs=6)
 time_start      = time.time()
 reg.fit(features_land_train, prec_fine_land_train)
-clf.fit(features_land_train, prec_fine_land_train_label)
+#clf.fit(features_land_train, prec_fine_land_train_label)
 time_tr         = time.time()
 prec_pre_all	= reg.predict(features_land)
 time_te		= time.time()
 prec_prediction['prec_fine'][valid_grid] = prec_pre_all.astype('float32')
 
+'''
 figure()
 im=imshow(np.ma.masked_equal(prec_prediction['prec_fine'].reshape(-1, 80, 72)[0][::-1],-9.99e+08))
 for a in np.ma.masked_equal(prec_prediction['prec_fine'].reshape(-1, 80, 72),-9.99e+08):

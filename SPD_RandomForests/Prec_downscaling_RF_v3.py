@@ -191,6 +191,8 @@ prec_pre_all	= reg.predict(features_land)
 time_te		= time.time()
 prec_prediction['prec_fine'][prec_validGrid_c] = prec_pre_all.astype('float32')
 
+feature_name = list(features.columns.values)
+
 '''
 prec_fine_land = prec_fine[valid_grid]
 prec_fine_land_label = prec_fine_land.values.squeeze()

@@ -9,16 +9,16 @@ pause <- function() invisible(readline("\n Please Enter to continue: \n"))
 library("spTimer");
 
 # Read data
-SEUSData <- read.table("SEUSData_16.txt",header=TRUE)
+SEUSData <- read.table("../Data/Input/SEUSData_16_syn.txt",header=TRUE)
 preMon <- c(7)	# Select July as the predict month
-preYear <- c(2009)
+preYear <- c(2000)
 DataSelMon <- spT.subset(data=SEUSData, var.name=c("Month"),s=preMon)
 
 DataFit <- subset(DataSelMon, with(DataSelMon, !(Year==preYear)))		# Exclude 1982 as 1982 will be the predicted year
 DataValPred <- subset(DataSelMon, with(DataSelMon, Year==preYear))
 
 set.seed(11)
-post.gp <- spT.Gibbs(formula=NLDAS_prec ~ NMME_prec, data=DataFit, model="GP", coords=~Longitude+Latitude, nItr=500, nBurn=100, scale.transform="SQRT", spatial.decay=spT.decay(distribution=Gamm(2,1), tuning=0.1))
+post.gp <- spT.Gibbs(formula=NLDAS_prec ~ NLDAS_prec_UpDown, data=DataFit, model="GP", coords=~Longitude+Latitude, nItr=500, nBurn=100, scale.transform="SQRT", spatial.decay=spT.decay(distribution=Gamm(2,1), tuning=0.1))
 
 #print(post.gp)
 #plot(post.gp)

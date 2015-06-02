@@ -35,6 +35,7 @@ post.gp <- spT.Gibbs(formula=o8hrmax ~cMAXTMP+WDSP+RH,data=DataFit,
         model="GP", coords=~Longitude+Latitude, scale.transform="SQRT",
 		spatial.decay=spT.decay(distribution=Gamm(2,1),tuning=0.1))
 print(post.gp)
+# plot(post.gp)
 summary(post.gp)
 
 

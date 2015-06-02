@@ -6,11 +6,8 @@ import	time
 import	os
 import	dataPre_Library		as	DL
 from	pandas			import	DataFrame
-from	sklearn.ensemble	import	RandomForestClassifier
 from	sklearn.ensemble	import	RandomForestRegressor
-from	sklearn.metrics		import	classification_report
-from 	sklearn.metrics		import	recall_score
-from	sklearn.metrics		import	roc_curve, auc
+from	sklearn.metrics		import	mean_squared_error
 
 ### Basic information
 year		= 1992
@@ -22,7 +19,7 @@ sLon            = 0
 eLon            = 32
 nLon		= eLon - sLon
 res_tar         = 0.125                                 # Target resolution
-res_up		= 0.25                                  # Upscaled resolution
+res_up		= 1.0                                   # Upscaled resolution
 ratio_up        = res_up/res_tar                        # Number of smaller grids within big grid box
 ngrid_Up	= nLat/ratio_up
 
@@ -100,32 +97,38 @@ pre_te		= reg.predict(features_test)
 pre_fit		= reg.predict(features_train)
 time_te         = time.time()
 
-cbar_min	= obs_train.min()
-cbar_max	= obs_train.max()
+rmse_fit	= mean_squared_error(obs_train, pre_fit)**0.5
+rmse_pre	= mean_squared_error(obs_fine, pre_te)**0.5
+print("MSE_fit: %.4f" % rmse_fit)
+print("MSE_pre: %.4f" % rmse_pre)
+
+### Plot
+cbar_min	= obs_fine.min()
+cbar_max	= obs_fine.max()
 
 plt.figure()
 plt.imshow(pre_te.reshape(nLat,nLon), vmin=cbar_min, vmax=cbar_max, interpolation='nearest')
 plt.colorbar()
 plt.title('Prediction (RF) (%s%02d)'%(year, mon), size='x-large')
 #plt.savefig('../../Figures/RF/RF_pre_%s%02d.png'%(year, mon), format='PNG')
-plt.savefig('../../Figures/RF/RF_pre_%s%02d_v2.png'%(year, mon), format='PNG')
+plt.savefig('../../Figures/RF/RF_pre_%s%02d_%s-%s.png'%(year, mon, res_tar, res_up), format='PNG')
 
 plt.figure()
 plt.imshow(pre_fit.reshape(ngrid_Up, ngrid_Up), vmin=cbar_min, vmax=cbar_max, interpolation='nearest')
 plt.colorbar()
 plt.title('Fit (RF) (%s%02d)'%(year, mon), size='x-large')
 #plt.savefig('../../Figures/RF/RF_fit_%s%02d.png'%(year, mon), format='PNG')
-plt.savefig('../../Figures/RF/RF_fit_%s%02d_v2.png'%(year, mon), format='PNG')
+plt.savefig('../../Figures/RF/RF_fit_%s%02d_%s-%s.png'%(year, mon, res_tar, res_up), format='PNG')
 
 plt.figure()
 plt.imshow(obs_fine.reshape(nLat,nLon), vmin=cbar_min, vmax=cbar_max, interpolation='nearest')
 plt.colorbar()
 plt.title('Observation (RF) (%s%02d)'%(year, mon), size='x-large')
-#plt.savefig('../../Figures/RF/RF_obs_%s%02d.png'%(year, mon), format='PNG')
+plt.savefig('../../Figures/RF/RF_obs_%s%02d.png'%(year, mon), format='PNG')
 
 plt.figure()
 plt.imshow(obs_train.reshape(ngrid_Up, ngrid_Up), vmin=cbar_min, vmax=cbar_max, interpolation='nearest')
 plt.colorbar()
 plt.title('Upscale (%s%02d)'%(year, mon), size='x-large')
-#plt.savefig('../../Figures/RF/RF_obsUpscale_%s%02d.png'%(year, mon), format='PNG')
+plt.savefig('../../Figures/RF/RF_obsUpscale_%s%02d_%s-%s.png'%(year, mon, res_tar, res_up), format='PNG')
 plt.show()
