@@ -1,33 +1,38 @@
 #!/usr/bin/env python
 
-import	numpy			as	np
-import	matplotlib.pyplot	as	plt
-from 	netCDF4			import	Dataset
+import	numpy                   as      np
+import	matplotlib.pyplot	    as      plt
+from 	netCDF4			        import	Dataset
+import  pandas.rpy.common       as      com
+from    rpy2.robjects           import  r
+from    rpy2.robjects.packages  import  importr
+from    rpy2.robjects.vectors   import  FloatVector
+from    rpy2.robjects           import  globalenv
 
 def blockshaped(arr, nrows, ncols):
-        """
-        Return an array of shape (n, nrows, ncols) where
-        n * nrows * ncols = arr.size
+    """
+    Return an array of shape (n, nrows, ncols) where
+    n * nrows * ncols = arr.size
         
-        If arr is a 2D array, the returned array should look like n subblocks with
-        each subblock preserving the "physical" layout of arr.
-        """
-        h, w = arr.shape
-        return (arr.reshape(h//nrows, nrows, -1, ncols).swapaxes(1,2).reshape(-1, nrows, ncols))
+    If arr is a 2D array, the returned array should look like n subblocks with
+    each subblock preserving the "physical" layout of arr.
+    """
+    h, w = arr.shape
+    return (arr.reshape(h//nrows, nrows, -1, ncols).swapaxes(1,2).reshape(-1, nrows, ncols))
 
 def disaggregate(inArr, gridNo):
-        out = np.repeat(np.repeat(inArr, gridNo, axis=1), gridNo, axis=0)
-        return out
+    out = np.repeat(np.repeat(inArr, gridNo, axis=1), gridNo, axis=0)
+    return out
 
 def upscale(arr, nrows, ncols, nlat_coarse, nlon_coarse):
-        """
-        Return an upscaled array of shape (ngrid_Up, ngrid_Up)
+    """
+    Return an upscaled array of shape (ngrid_Up, ngrid_Up)
+    
+    Note: Similar to the blockshaped function
+    """
 
-	Note: Similar to the blockshaped function
-        """
-
-        h, w = arr.shape
-        return (arr.reshape(h//nrows, nrows, -1, ncols).swapaxes(1,2).reshape(-1, nrows, ncols)).mean(-1).mean(-1).reshape(nlat_coarse, nlon_coarse)
+    h, w = arr.shape
+    return (arr.reshape(h//nrows, nrows, -1, ncols).swapaxes(1,2).reshape(-1, nrows, ncols)).mean(-1).mean(-1).reshape(nlat_coarse, nlon_coarse)
 
 def extend_array_boundary(inArr):
     """
@@ -67,4 +72,47 @@ def plot_feature_importance(reg, feature_num, feature_name):
     ax.set_xticks(range(feature_num))
     ax.set_xticklabels(feature_name_sort, rotation=90)
     ax.set_title("Feature importances")
+
+def plot_spatial_corr(nlon, nlat, data):
+    """
+    Plot the spatial correlation using R's 'ncf' package
+
+    Input:  nlon: lon number
+            nlat: lat number
+            data: 1-d array
+    """
+
+    ##### Load R packages
+    importr('ncf')
+
+    lon = r("lon <- expand.grid(1:%d, 1:%d)[,1]" % (nlon, nlat))
+    lat = r("lat <- expand.grid(1:%d, 1:%d)[,2]" % (nlon, nlat))
+    lon = np.array(lon)
+    lat = np.array(lat)
+
+    ind = data != -9.99e+08
+    data = data[ind]
+    lon = lon[ind]
+    lat = lat[ind]
+
+    ##### Convert numpy to R format
+    data = FloatVector(data)
+    lon = FloatVector(lon)
+    lat = FloatVector(lat)
+
+    globalenv['data'] = data
+    globalenv['lon'] = lon
+    globalenv['lat'] = lat
+    fit = r("spline.correlog(x=lon, y=lat, z=data, resamp=5)")
+
+    ##### Convert R object to Python Dictionary
+    fit = com.convert_robj(fit)
+
+    ##### Plot
+    plt.figure()
+    plt.plot(fit['real']['predicted']['x'], fit['real']['predicted']['y'])
+    plt.plot(fit['real']['predicted']['x'], fit['boot']['boot.summary']['predicted']['y'].loc[['0']].values.squeeze())  # Lower boundary
+    plt.plot(fit['real']['predicted']['x'], fit['boot']['boot.summary']['predicted']['y'].loc[['1']].values.squeeze())  # Upper boundary
+    plt.show()
+
 
