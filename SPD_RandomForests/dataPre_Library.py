@@ -8,6 +8,9 @@ from    rpy2.robjects           import  r
 from    rpy2.robjects.packages  import  importr
 from    rpy2.robjects.vectors   import  FloatVector
 from    rpy2.robjects           import  globalenv
+import  rpy2.robjects.numpy2ri
+rpy2.robjects.numpy2ri.activate()
+
 
 def blockshaped(arr, nrows, ncols):
     """
@@ -115,4 +118,44 @@ def plot_spatial_corr(nlon, nlat, data):
     plt.plot(fit['real']['predicted']['x'], fit['boot']['boot.summary']['predicted']['y'].loc[['1']].values.squeeze())  # Upper boundary
     plt.show()
 
+def compute_variogram(nlon, nlat, data, psill=0, vrange=40, nugget=0):
+    """
+    Compute the semi-variogram using R's 'gstat' package
+
+    Input:  nlon: lon number
+            nlat: lat number
+            data: 1-d array
+    """
+
+    ##### Load R packages
+    r('library("gstat")')
+    r('library("sp")')
+
+    lon = r("lon <- expand.grid(1:%d, 1:%d)[,1]" % (nlon, nlat))
+    lat = r("lat <- expand.grid(1:%d, 1:%d)[,2]" % (nlon, nlat))
+    lon = np.array(lon)
+    lat = np.array(lat)
+
+    ind = data != -9.99e+08
+    data = data[ind]
+    lon = lon[ind]
+    lat = lat[ind]
+
+    ##### Convert numpy to R format
+    r.assign("data", data)
+    r.assign("lon", lon)
+    r.assign("lat", lat)
+
+    ##### Fit variogram
+    r("d = data.frame(lon=lon, lat=lat, prec=data)")
+    r("coordinates(d)<-~lon+lat")
+    r('vg <- variogram(prec~1, d)')
+    r("vg.fit <- fit.variogram(vg, vgm(%s, 'Exp', %s, %s))" % (psill, vrange, nugget))
+
+    dist = np.array(r("vg$dist"))
+    gamma = np.array(r("vg$gamma"))
+    dist_fit = np.array((r('variogramLine(vg.fit, %s)$dist' % (vrange))))
+    gamma_fit = np.array((r('variogramLine(vg.fit, %s)$gamma' % (vrange))))
+
+    return dist, gamma, dist_fit, gamma_fit
 
