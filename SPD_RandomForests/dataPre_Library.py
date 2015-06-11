@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import	numpy                   as      np
-import	matplotlib.pyplot	    as      plt
-from 	netCDF4			        import	Dataset
+import	matplotlib.pyplot       as      plt
+from 	netCDF4                 import	Dataset
 import  pandas.rpy.common       as      com
 from    rpy2.robjects           import  r
 from    rpy2.robjects.packages  import  importr
@@ -10,7 +10,6 @@ from    rpy2.robjects.vectors   import  FloatVector
 from    rpy2.robjects           import  globalenv
 import  rpy2.robjects.numpy2ri
 rpy2.robjects.numpy2ri.activate()
-
 
 def blockshaped(arr, nrows, ncols):
     """
@@ -159,3 +158,18 @@ def compute_variogram(nlon, nlat, data, psill=0, vrange=40, nugget=0):
 
     return dist, gamma, dist_fit, gamma_fit
 
+def compute_frac_area_intensity(data_fine, ngrid, nlat_coarse, nlon_coarse):
+    """
+    Compute the precipitaton fraction area and precipitation intensity averaged over the large grid box
+
+    Input:  data_fine: 2-d array; size=(nlat_fine, nlon_fine)
+            ngrid: number of small grid cells within large grid cell
+            nlat_coarse: lat number of coarse resolution
+            nlon_coarse: lon number of coarse resolution
+    """
+    data_fine_group = np.array([data_fine[i*ngrid:(i+1)*ngrid, j*ngrid:(j+1)*ngrid] for i in range(nlat_coarse) for j in range(nlon_coarse)])
+    data_fine_group_mask = np.ma.masked_equal(data_fine_group, -9.99e+08)
+    data_fine_group_label = (data_fine_group_mask>0).astype('float')
+    prec_frac_area = data_fine_group_label.mean(-1).mean(-1)
+    prec_intensity = data_fine_group_mask.mean(-1).mean(-1)
+    return prec_frac_area, prec_intensity
