@@ -173,3 +173,18 @@ def compute_frac_area_intensity(data_fine, ngrid, nlat_coarse, nlon_coarse):
     prec_frac_area = data_fine_group_label.mean(-1).mean(-1)
     prec_intensity = data_fine_group_mask.mean(-1).mean(-1)
     return prec_frac_area, prec_intensity
+
+def pred_ints(model, X, percentile=95):
+    """
+    http://blog.datadive.net/prediction-intervals-for-random-forests/
+    """
+    err_down = []
+    err_up = []
+    for x in range(len(X)):
+        preds = []
+        for pred in model.estimators_:
+            preds.append(pred.predict(X[x])[0])
+        err_down.append(np.percentile(preds, (100-percentile)/2.))
+        err_up.append(np.percentile(preds, 100-(100-percentile)/2.))
+    return err_down, err_up
+
