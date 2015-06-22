@@ -177,14 +177,12 @@ def compute_frac_area_intensity(data_fine, ngrid, nlat_coarse, nlon_coarse):
 def pred_ints(model, X, percentile=95):
     """
     http://blog.datadive.net/prediction-intervals-for-random-forests/
+
+    Reference: Meinshausen (2006), Quantile Regression Forests
     """
-    err_down = []
-    err_up = []
-    for x in range(len(X)):
-        preds = []
-        for pred in model.estimators_:
-            preds.append(pred.predict(X[x])[0])
-        err_down.append(np.percentile(preds, (100-percentile)/2.))
-        err_up.append(np.percentile(preds, 100-(100-percentile)/2.))
+    tree_num = len(model.estimators_)
+    preds = np.array([model.estimators_[i].predict(X) for i in range(tree_num)])
+    err_down = np.percentile(preds, (100-percentile)/2., axis=0)
+    err_up = np.percentile(preds, 100-(100-percentile)/2., axis=0)
     return err_down, err_up
 
