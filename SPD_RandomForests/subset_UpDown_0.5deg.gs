@@ -1,7 +1,7 @@
 'open /home/raid19/forecast/NCST/nomad6.ncep.noaa.gov/pub/raid2/wd20yx/nldas/NLDASII_Forcing/nldasforce-a-2011.ctl'
 
 * variable Name list = ['apcpsfc', 'cape180_0mb', 'pressfc', 'spfh2m', 'tmp2m', 'ugrd10m', 'vgrd10m']
-varName='apcpsfc'
+varName='cape180_0mb'
 res='0.5deg'
 
 'set lat 25.0625 35.0625'
