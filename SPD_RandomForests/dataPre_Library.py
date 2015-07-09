@@ -3,6 +3,7 @@
 import	numpy                   as      np
 import	matplotlib.pyplot       as      plt
 from 	netCDF4                 import	Dataset
+import  pandas                  as      pd
 import  pandas.rpy.common       as      com
 from    rpy2.robjects           import  r
 from    rpy2.robjects.packages  import  importr
@@ -60,6 +61,20 @@ def get_adjacent_grids(extendArr, rand_row, rand_col):
     grid_up = extendArr[:, 1:-1][np.ix_(rand_row, rand_col)]
     grid_down = extendArr[:, 1:-1][np.ix_(rand_row+2, rand_col)]
     return grid_central, grid_left, grid_right, grid_up, grid_down
+
+def get_DOY(date_start, ntime, nlat_fine, nlon_fine):
+    """
+    Get the day of year (DOY) for each time step
+    
+    Args:
+        :date_start (str): starting date (e.g., MDY, '10/01/2011')
+        :ntime (int): total time steps
+    
+    """
+    dates = pd.date_range(date_start, periods=ntime, freq='H') 
+    DOY = dates.dayofyear 
+    DOYs = np.array([np.ones((nlat_fine,nlon_fine))*DOY[i] for i in range(ntime)])
+    return DOYs
 
 def plot_feature_importance(reg, feature_num, feature_name):
     importances = reg.feature_importances_
@@ -184,5 +199,5 @@ def pred_ints(model, X, percentile=95):
     preds = np.array([model.estimators_[i].predict(X) for i in range(tree_num)])
     err_down = np.percentile(preds, (100-percentile)/2., axis=0)
     err_up = np.percentile(preds, 100-(100-percentile)/2., axis=0)
-    return err_down, err_up
+    return err_down, err_up, preds
 
