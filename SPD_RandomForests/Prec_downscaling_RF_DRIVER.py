@@ -36,7 +36,7 @@ features_name['dynamic'] = ['prec', 'cape180', 'pressfc', 'spfh2m', 'tmp2m', 'ug
 RFDS = DL.RandomForestsDownScaling(region_info, date_info, data_info, RF_config, features_name)
 prec_downscaled = RFDS.ensemble_mean()
 
-plt.figure()
-plt.imshow(np.ma.masked_equal(prec_downscaled['prec_fine'].reshape(-1, region_info['nlat_fine'], region_info['nlon_fine'])[216][::-1],-9.99e+08))
-plt.show()
+# Plot the spatial pattern of the downscaled precipitation
+RFDS.show_prec_image(prec_downscaled, itime=216)
+
 

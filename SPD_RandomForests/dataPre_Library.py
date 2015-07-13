@@ -1,9 +1,12 @@
+#-*-coding:utf-8-*-
+
 #!/usr/bin/env python
 
-from 	netCDF4                 import	Dataset
 from    pandas                  import  DataFrame
 import	numpy                   as      np
+import  matplotlib
 import	matplotlib.pyplot       as      plt
+from    matplotlib              import  colors
 import  pandas                  as      pd
 import  pandas.rpy.common       as      com
 from    rpy2.robjects           import  r
@@ -236,6 +239,38 @@ class RandomForestsDownScaling(object):
         prec_prediction_df['prec_fine'][self.features_land_df.index] = prec_pre_all.astype('float32')
 
         return prec_prediction_df
+
+    def show_prec_image(self, prec_df, itime=0, vmax=None):
+        """
+        Plot precipitation using customized color table
+
+        Args:
+            :prec_df (df): precipitation dataframe
+            :itime (int): ith time step
+            :vmax (float): max value for colorbar 
+    
+        """
+
+        # Plot settings
+        matplotlib.rcParams['pdf.fonttype'] = 42
+        cpalette = np.loadtxt('./WhiteBlueGreenYellowRed.rgb',skiprows=2)/255.
+        cmap = colors.ListedColormap(cpalette, 256)
+        cmap.set_bad('0.7') 
+
+        # Show the spatial pattern
+        plt.figure()
+        plt.imshow(np.ma.masked_equal(prec_df['prec_fine'] \
+                   .reshape(-1, self._nlat_fine, self._nlon_fine)[itime][::-1], -9.99e+08), 
+                   cmap=cmap, 
+                   interpolation='nearest', 
+                   vmin=0, 
+                   vmax=vmax) 
+        plt.colorbar()
+        plt.xticks([])
+        plt.yticks([])
+        # plt.title('%s' %(title))
+        # plt.savefig('../../Figures/Animation/%s_SEUS_adjacent_0.5deg_bi-linear_%s.png' % (title, i), format='PNG')
+        plt.show()
 
     def plot_feature_importance(reg, feature_num, feature_name):
         importances = reg.feature_importances_
