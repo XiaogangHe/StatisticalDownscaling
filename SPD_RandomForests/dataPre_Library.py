@@ -3,10 +3,11 @@
 #!/usr/bin/env python
 
 from    pandas                  import  DataFrame
+from    matplotlib              import  colors
+import  os
 import	numpy                   as      np
 import  matplotlib
 import	matplotlib.pyplot       as      plt
-from    matplotlib              import  colors
 import  pandas                  as      pd
 import  pandas.rpy.common       as      com
 from    rpy2.robjects           import  r
@@ -15,6 +16,9 @@ from    rpy2.robjects.vectors   import  FloatVector
 from    rpy2.robjects           import  globalenv
 import  rpy2.robjects.numpy2ri
 rpy2.robjects.numpy2ri.activate()
+import  grads
+grads_exe = '/home/wind/hexg/opengrads/grads'
+ga = grads.GrADS(Bin=grads_exe,Window=False,Echo=False)
 
 class RandomForestsDownScaling(object):
     
@@ -30,6 +34,7 @@ class RandomForestsDownScaling(object):
     """
 
     def __init__(self, region_info, date_info, data_info, RF_config, features_name):
+        self._region_name = region_info['name']
         self._minlat = region_info['minlat']
         self._minlon = region_info['minlon']
         self._maxlat = region_info['maxlat']
@@ -37,15 +42,70 @@ class RandomForestsDownScaling(object):
         self._nlat_fine = region_info['nlat_fine']
         self._nlon_fine = region_info['nlon_fine']
         self._res_fine = region_info['res_fine']
+        self._res_coarse = region_info['res_coarse']
+        self._scaling_ratio = self._res_coarse/self._res_fine
         self._stime = date_info['stime']
+        self._ftime = date_info['ftime']
         self._ntime = date_info['ntime']
-        self._path = data_info['path']
+        self._path_RF = data_info['path_RF']
+        self._path_RF_subregion = data_info['path_RF'] + '/' + region_info['name']
+        self._path_NLDAS2 = data_info['path_NLDAS2']
         self._rand_row_num = RF_config['rand_row_num']
         self._rand_col_num = RF_config['rand_col_num']
         self._ntree = RF_config['ntree']
         self._njob = RF_config['njob']
         self._features_static = features_name['static']
         self._features_dynamic = features_name['dynamic']
+
+    def domain_subset_UpDownSample(self, var):
+        """
+        Extract the sub-region synthetic covariates from CONUS using PyGrads through the upsampling and downsampling
+
+        Args:
+            :var (str): variable name in the GrADS control file 
+
+        """
+
+        # Open access to the file
+        ctl_file = 'nldasforce-a-2011.ctl'
+        nlat_coarse = self._nlat_fine/self._scaling_ratio + 2
+        nlon_coarse = self._nlon_fine/self._scaling_ratio + 1
+        ga("open %s/%s" % (self._path_NLDAS2, ctl_file)) 
+
+        # Set to new region
+        ga("set lat %s %s" % (self._minlat, self._maxlat+self._res_fine)) 
+        ga("set lon %s %s" % (self._minlon, self._maxlon+self._res_fine)) 
+
+        # Upsample and downsample 
+        ga("define mask=const(%s, 1)" % (var))
+        ga("set time %s %s" % (self._stime.strftime("%Hz%d%b"), self._ftime.strftime("%Hz%d%b")))
+        ga("define up=re(%s, %s, linear, %s, %s, %s, linear, %s, %s, ba)" \
+                % (var, nlon_coarse, self._minlon, self._res_coarse, nlat_coarse, self._minlat, self._res_coarse)) 
+        ga("define down=re(up, %s, linear, %s, %s, %s, linear, %s, %s, ba)" \
+                % (self._nlon_fine+1, self._minlon, self._res_fine, self._nlat_fine+1, self._minlat, self._res_fine))
+        ga("define up=re(down, %s, linear, %s, %s, %s, linear, %s, %s, ba)" \
+                % (nlon_coarse, self._minlon, self._res_coarse, nlat_coarse, self._minlat, self._res_coarse)) 
+        ga("define down=re(up, %s, linear, %s, %s, %s, linear, %s, %s, bl)" \
+                % (self._nlon_fine+1, self._minlon, self._res_fine, self._nlat_fine+1, self._minlat, self._res_fine))
+        ga("define downMask=maskout(down, mask-0.1)")
+
+        # Output the data 
+        ga("set lat %s %s" % (self._minlat, self._maxlat)) 
+        ga("set lon %s %s" % (self._minlon, self._maxlon)) 
+        ga("set gxout fwrite")
+        ga("set fwrite %s_UpDown_0.5deg_pygrads.bin" % (var))
+        ga("d downMask")
+        ga("disable fwrite")
+
+        # Close access to all files
+        ga("close 1")
+
+        if os.path.exists(self._path_RF_subregion) == False:
+            os.mkdir(self._path_RF_subregion)
+
+        os.system("mv *.bin %s" % (self._path_RF_subregion))
+
+        return
 
     def extend_array_boundary(self, inArr):
         """
@@ -102,13 +162,14 @@ class RandomForestsDownScaling(object):
 
         # Add static covariates
         self.features_dic = {static_feature: \
-                np.fromfile('%s/%s_SEUS.bin' % (self._path, static_feature),'float32').reshape(self._nlat_fine, self._nlon_fine) \
+                np.fromfile('%s/%s_SEUS.bin' % (self._path_RF, static_feature),'float32').reshape(self._nlat_fine, self._nlon_fine) \
                 for static_feature in self._features_static} 
 
         # Add dynamic covariates
         features_dic_dynamic = {dynamic_feature: \
-                np.fromfile('%s/%s_UpDown_0.5deg_2011_JJA_SEUS_bi-linear.bin' % \
-                (self._path, dynamic_feature),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime] \
+                #np.fromfile('%s/%s_UpDown_0.5deg_2011_JJA_SEUS_bi-linear.bin' % \
+                np.fromfile('%s/%s_UpDown_0.5deg_temp.bin' % \
+                (self._path_RF, dynamic_feature),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime] \
                 for dynamic_feature in self._features_dynamic} 
         self.features_dic.update(features_dic_dynamic)
 
@@ -136,12 +197,12 @@ class RandomForestsDownScaling(object):
     
         """
         file_name = 'apcpsfc_2011_JJA_SEUS.bin'
-        self.prec_fine = np.fromfile('%s/%s' % (self._path, file_name),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime]
+        self.prec_fine = np.fromfile('%s/%s' % (self._path_RF, file_name),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime]
         return self.prec_fine
 
     def mask_out_ocean(self, covariates_df, response_df):
         """
-        This is a class to use Random Forests for precipitation downscaling
+        This function can be used to mask out ocean grid cells
     
         Args:
             :covariates_df (df): Dataframe for features
