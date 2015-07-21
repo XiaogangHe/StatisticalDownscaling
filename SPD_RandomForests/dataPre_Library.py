@@ -2,23 +2,24 @@
 
 #!/usr/bin/env python
 
-from    pandas                  import  DataFrame
-from    matplotlib              import  colors
-import  os
-import	numpy                   as      np
-import  matplotlib
-import	matplotlib.pyplot       as      plt
-import  pandas                  as      pd
-import  pandas.rpy.common       as      com
-from    rpy2.robjects           import  r
-from    rpy2.robjects.packages  import  importr
-from    rpy2.robjects.vectors   import  FloatVector
-from    rpy2.robjects           import  globalenv
-import  rpy2.robjects.numpy2ri
+from pandas import DataFrame
+from matplotlib import colors
+import os
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+import pandas as pd
+import pandas.rpy.common as com
+import pathos.multiprocessing as mp
+from rpy2.robjects import r
+from rpy2.robjects.packages import importr
+from rpy2.robjects.vectors import FloatVector
+from rpy2.robjects import globalenv
+import rpy2.robjects.numpy2ri
 rpy2.robjects.numpy2ri.activate()
-import  grads
+import grads
 grads_exe = '/home/wind/hexg/opengrads/grads'
-ga = grads.GrADS(Bin=grads_exe,Window=False,Echo=False)
+ga = grads.GrADS(Bin=grads_exe, Window=False, Echo=False)
 
 class RandomForestsDownScaling(object):
     
@@ -50,6 +51,7 @@ class RandomForestsDownScaling(object):
         self._path_RF = data_info['path_RF']
         self._path_RF_subregion = data_info['path_RF'] + '/' + region_info['name']
         self._path_NLDAS2 = data_info['path_NLDAS2']
+        self._ctl_file = data_info['ctl_file']
         self._rand_row_num = RF_config['rand_row_num']
         self._rand_col_num = RF_config['rand_col_num']
         self._ntree = RF_config['ntree']
@@ -57,7 +59,51 @@ class RandomForestsDownScaling(object):
         self._features_static = features_name['static']
         self._features_dynamic = features_name['dynamic']
 
-    def domain_subset_UpDownSample(self, var):
+    def subset_prec(self):
+        """
+        Extract the fine-resolution sub-region precipitation from CONUS using PyGrads
+
+        """
+
+        # Open access to the file
+        ga("open %s/%s" % (self._path_NLDAS2, self._ctl_file)) 
+
+        # Output the data 
+        ga("set lat %s %s" % (self._minlat, self._maxlat)) 
+        ga("set lon %s %s" % (self._minlon, self._maxlon)) 
+        ga("set time %s %s" % (self._stime.strftime("%Hz%d%b"), self._ftime.strftime("%Hz%d%b")))
+        ga("set gxout fwrite")
+        ga("set fwrite prec_2011_JJA_%s.bin" % (self._region_name))
+        ga("d apcpsfc")
+        ga("disable fwrite")
+
+        # Close access to all files
+        ga("close 1")
+
+    def subset_cov_static(self):
+        """
+        Extract the fine-resolution static covariates from CONUS using PyGrads
+
+        """
+
+        for static_feature in self._features_static:
+            # Open access to the file
+            ga("open %s/%s" % (self._path_RF, self._ctl_file[static_feature])) 
+
+            # Output the data 
+            ga("set lat %s %s" % (self._minlat+0.0005, self._maxlat-0.0005)) 
+            ga("set lon %s %s" % (self._minlon+0.0005, self._maxlon-0.0005)) 
+            ga("set gxout fwrite")
+            ga("set fwrite %s_%s.bin" % (static_feature, self._region_name))
+            ga("d %s" % (static_feature))
+            ga("disable fwrite")
+
+            # Close access to all files
+            ga("close 1")
+
+        return
+
+    def subset_cov_UpDownSample(self, var):
         """
         Extract the sub-region synthetic covariates from CONUS using PyGrads through the upsampling and downsampling
 
@@ -67,18 +113,19 @@ class RandomForestsDownScaling(object):
         """
 
         # Open access to the file
-        ctl_file = 'nldasforce-a-2011.ctl'
         nlat_coarse = self._nlat_fine/self._scaling_ratio + 2
         nlon_coarse = self._nlon_fine/self._scaling_ratio + 1
-        ga("open %s/%s" % (self._path_NLDAS2, ctl_file)) 
+
+        ga("open %s/%s" % (self._path_NLDAS2, self._ctl_file)) 
 
         # Set to new region
         ga("set lat %s %s" % (self._minlat, self._maxlat+self._res_fine)) 
         ga("set lon %s %s" % (self._minlon, self._maxlon+self._res_fine)) 
 
-        # Upsample and downsample 
         ga("define mask=const(%s, 1)" % (var))
         ga("set time %s %s" % (self._stime.strftime("%Hz%d%b"), self._ftime.strftime("%Hz%d%b")))
+
+        # Upsample and downsample 
         ga("define up=re(%s, %s, linear, %s, %s, %s, linear, %s, %s, ba)" \
                 % (var, nlon_coarse, self._minlon, self._res_coarse, nlat_coarse, self._minlat, self._res_coarse)) 
         ga("define down=re(up, %s, linear, %s, %s, %s, linear, %s, %s, ba)" \
@@ -93,17 +140,12 @@ class RandomForestsDownScaling(object):
         ga("set lat %s %s" % (self._minlat, self._maxlat)) 
         ga("set lon %s %s" % (self._minlon, self._maxlon)) 
         ga("set gxout fwrite")
-        ga("set fwrite %s_UpDown_0.5deg_pygrads.bin" % (var))
+        ga("set fwrite %s_UpDown_%sdeg_2011_JJA_%s_bi-linear.bin" % (var, self._res_coarse, self._region_name))
         ga("d downMask")
         ga("disable fwrite")
 
         # Close access to all files
         ga("close 1")
-
-        if os.path.exists(self._path_RF_subregion) == False:
-            os.mkdir(self._path_RF_subregion)
-
-        os.system("mv *.bin %s" % (self._path_RF_subregion))
 
         return
 
@@ -154,6 +196,23 @@ class RandomForestsDownScaling(object):
         lats = np.array([lats]*self._ntime)
         return lons, lats
 
+    def prepare_regional_data(self):
+        """
+        Subset regional data and save to the local disk
+    
+        """
+        # self.subset_prec()
+        self.subset_cov_static()
+        
+        # !!! Need to add process other covariates
+
+        if os.path.exists(self._path_RF_subregion) == False:
+            os.mkdir(self._path_RF_subregion)
+
+        os.system("mv *.bin %s" % (self._path_RF_subregion))
+
+        return 
+
     def prepare_covariates(self):
         """
         Prepare precipitation observations
@@ -162,14 +221,14 @@ class RandomForestsDownScaling(object):
 
         # Add static covariates
         self.features_dic = {static_feature: \
-                np.fromfile('%s/%s_SEUS.bin' % (self._path_RF, static_feature),'float32').reshape(self._nlat_fine, self._nlon_fine) \
+                np.fromfile('%s/%s_%s.bin' % (self._path_RF_subregion, static_feature, self._region_name),'float32').reshape(self._nlat_fine, self._nlon_fine) \
                 for static_feature in self._features_static} 
 
         # Add dynamic covariates
         features_dic_dynamic = {dynamic_feature: \
                 #np.fromfile('%s/%s_UpDown_0.5deg_2011_JJA_SEUS_bi-linear.bin' % \
-                np.fromfile('%s/%s_UpDown_0.5deg_temp.bin' % \
-                (self._path_RF, dynamic_feature),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime] \
+                np.fromfile('%s/%s_UpDown_%sdeg_2011_JJA_%s_bi-linear.bin' % \
+                (self._path_RF_subregion, dynamic_feature, self._res_coarse, self._region_name),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime] \
                 for dynamic_feature in self._features_dynamic} 
         self.features_dic.update(features_dic_dynamic)
 
@@ -196,8 +255,7 @@ class RandomForestsDownScaling(object):
         Prepare precipitation observations at fine resolution
     
         """
-        file_name = 'apcpsfc_2011_JJA_SEUS.bin'
-        self.prec_fine = np.fromfile('%s/%s' % (self._path_RF, file_name),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime]
+        self.prec_fine = np.fromfile('%s/prec_2011_JJA_%s.bin' % (self._path_RF_subregion, self._region_name),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime]
         return self.prec_fine
 
     def mask_out_ocean(self, covariates_df, response_df):
@@ -458,6 +516,14 @@ class RandomForestsDownScaling(object):
         err_up = np.percentile(preds, 100-(100-percentile)/2., axis=0)
         return err_down, err_up, preds
 
+    def print_info_to_command_line(line):
+        print "\n"
+        print "#######################################################################################"
+        print "%s" % line
+        print "#######################################################################################"
+        print "\n"
+
+        return
         
 
 def blockshaped(arr, nrows, ncols):
