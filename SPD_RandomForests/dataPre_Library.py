@@ -4,6 +4,8 @@
 
 from pandas import DataFrame
 from matplotlib import colors
+from mpl_toolkits.basemap import Basemap
+from sklearn.ensemble import RandomForestRegressor
 import os
 import numpy as np
 import matplotlib
@@ -11,6 +13,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pandas.rpy.common as com
 import pathos.multiprocessing as mp
+import matplotlib.cbook as cbook
 from rpy2.robjects import r
 from rpy2.robjects.packages import importr
 from rpy2.robjects.vectors import FloatVector
@@ -20,6 +23,8 @@ rpy2.robjects.numpy2ri.activate()
 import grads
 grads_exe = '/home/wind/hexg/opengrads/grads'
 ga = grads.GrADS(Bin=grads_exe, Window=False, Echo=False)
+import sys
+import gc
 
 class RandomForestsDownScaling(object):
     
@@ -58,6 +63,8 @@ class RandomForestsDownScaling(object):
         self._njob = RF_config['njob']
         self._features_static = features_name['static']
         self._features_dynamic = features_name['dynamic']
+
+        self.reg = RandomForestRegressor(n_estimators=self._ntree, bootstrap=True, oob_score=True, n_jobs=self._njob)
 
     def subset_prec(self):
         """
@@ -116,7 +123,7 @@ class RandomForestsDownScaling(object):
         nlat_coarse = self._nlat_fine/self._scaling_ratio + 2
         nlon_coarse = self._nlon_fine/self._scaling_ratio + 1
 
-        ga("open %s/%s" % (self._path_NLDAS2, self._ctl_file)) 
+        ga("open %s/%s" % (self._path_NLDAS2, self._ctl_file['dynamic'])) 
 
         # Set to new region
         ga("set lat %s %s" % (self._minlat, self._maxlat+self._res_fine)) 
@@ -181,7 +188,7 @@ class RandomForestsDownScaling(object):
         """
         dates = pd.date_range(self._stime, periods=self._ntime, freq='H') 
         DOY = dates.dayofyear 
-        DOYs = np.array([np.ones((self._nlat_fine, self._nlon_fine))*DOY[i] for i in range(self._ntime)])
+        DOYs = np.array([np.ones((self._nlat_fine, self._nlon_fine))*DOY[i] for i in xrange(self._ntime)])
         return DOYs
 
     def get_lons_lats(self):
@@ -202,7 +209,7 @@ class RandomForestsDownScaling(object):
     
         """
         # self.subset_prec()
-        self.subset_cov_static()
+        # self.subset_cov_static()
         
         # !!! Need to add process other covariates
 
@@ -226,7 +233,6 @@ class RandomForestsDownScaling(object):
 
         # Add dynamic covariates
         features_dic_dynamic = {dynamic_feature: \
-                #np.fromfile('%s/%s_UpDown_0.5deg_2011_JJA_SEUS_bi-linear.bin' % \
                 np.fromfile('%s/%s_UpDown_%sdeg_2011_JJA_%s_bi-linear.bin' % \
                 (self._path_RF_subregion, dynamic_feature, self._res_coarse, self._region_name),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime] \
                 for dynamic_feature in self._features_dynamic} 
@@ -234,7 +240,7 @@ class RandomForestsDownScaling(object):
 
         # Add adjacent precipitation grid cells as covariates
         prec_UpDown = self.features_dic['prec']
-        self.prec_UpDown_extend = np.array([self.extend_array_boundary(prec_UpDown[i]) for i in range(self._ntime)])
+        self.prec_UpDown_extend = np.array([self.extend_array_boundary(prec_UpDown[i]) for i in xrange(self._ntime)])
         self.features_dic['prec_disagg_l'] = self.prec_UpDown_extend[:, 1:-1, :-2]
         self.features_dic['prec_disagg_r'] = self.prec_UpDown_extend[:, 1:-1, 2:]
         self.features_dic['prec_disagg_u'] = self.prec_UpDown_extend[:, :-2, 1:-1]
@@ -255,8 +261,10 @@ class RandomForestsDownScaling(object):
         Prepare precipitation observations at fine resolution
     
         """
-        self.prec_fine = np.fromfile('%s/prec_2011_JJA_%s.bin' % (self._path_RF_subregion, self._region_name),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime]
-        return self.prec_fine
+        prec_fine = np.fromfile('%s/prec_2011_JJA_%s.bin' 
+                                     % (self._path_RF_subregion, self._region_name), 'float32'). \
+                                     reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime]
+        return prec_fine
 
     def mask_out_ocean(self, covariates_df, response_df):
         """
@@ -287,42 +295,42 @@ class RandomForestsDownScaling(object):
     
         """
 
-        self.prepare_prec_fine()
+        prec_fine = self.prepare_prec_fine()
         self.prepare_covariates()
 
         features_name_train = self.features_dic.keys()
         features_name_train.remove('prec')
-        self.features_train_dic = {feature_train: [] for feature_train in features_name_train} 
-        self.features_train_dic['prec_disagg_c'] = [] 
+        features_train_dic = {feature_train: [] for feature_train in features_name_train} 
+        features_train_dic['prec_disagg_c'] = [] 
         self.prec_fine_train = [] 
         
         dynamic_feature_update = [name for name in self._features_dynamic if name != 'prec']
         dynamic_feature_update.extend(['DOY', 'lons', 'lats'])            
         self.prec_feature = ['prec_disagg_c', 'prec_disagg_l', 'prec_disagg_r', 'prec_disagg_u', 'prec_disagg_d']
 
-        for i in range(self._ntime):
+        for i in xrange(self._ntime):
             ### Random choose grids
             rand_row_ind = np.random.choice(self._nlat_fine, self._rand_row_num, replace=False)
             rand_col_ind = np.random.choice(self._nlon_fine, self._rand_col_num, replace=False)
 
             ### Random sample fine precipitation
-            self.prec_fine_train.append(self.prec_fine[i][np.ix_(rand_row_ind, rand_col_ind)])
+            self.prec_fine_train.append(prec_fine[i][np.ix_(rand_row_ind, rand_col_ind)])
 
             ### Random sample coarse precipitation with its adjacent grids
             for prec_ind, prec_name in enumerate(self.prec_feature):
                 grid_loc = self.get_adjacent_grids(self.prec_UpDown_extend[i], rand_row_ind, rand_col_ind)[prec_ind]
-                self.features_train_dic[prec_name].append(grid_loc)
+                features_train_dic[prec_name].append(grid_loc)
 
             ### Random sample other variables 
             for static_feature in self._features_static:
-                self.features_train_dic[static_feature].append(self.features_dic[static_feature][np.ix_(rand_row_ind, rand_col_ind)])
+                features_train_dic[static_feature].append(self.features_dic[static_feature][np.ix_(rand_row_ind, rand_col_ind)])
             
             for dynamic_feature in dynamic_feature_update:
-                self.features_train_dic[dynamic_feature].append(self.features_dic[dynamic_feature][i][np.ix_(rand_row_ind, rand_col_ind)])
+                features_train_dic[dynamic_feature].append(self.features_dic[dynamic_feature][i][np.ix_(rand_row_ind, rand_col_ind)])
 
         ### Create dataframe for features
-        self.features_name_all = self.features_train_dic.keys()
-        features_train_df = DataFrame({feature_all: np.array(self.features_train_dic[feature_all]).reshape(-1) for feature_all in self.features_name_all}) 
+        self.features_name_all = features_train_dic.keys()
+        features_train_df = DataFrame({feature_all: np.array(features_train_dic[feature_all]).reshape(-1) for feature_all in self.features_name_all}) 
         features_df = DataFrame({static_feature: np.array([self.features_dic[static_feature].tolist()]*self._ntime).reshape(-1) for static_feature in self._features_static}) 
         for dynamic_feature in dynamic_feature_update + self.prec_feature:
             if dynamic_feature == 'prec_disagg_c':
@@ -332,34 +340,110 @@ class RandomForestsDownScaling(object):
 
         ### Create dataframe for precipitation
         prec_fine_train_df = DataFrame({'prec_fine': np.array(self.prec_fine_train).reshape(-1)})
-        prec_fine_df = DataFrame({'prec_fine': self.prec_fine.reshape(-1)})
+        prec_fine_df = DataFrame({'prec_fine': prec_fine.reshape(-1)})
 
         ### Mask out ocean grid cells
         self.features_train_land_df, self.prec_fine_train_land_df = self.mask_out_ocean(features_train_df, prec_fine_train_df)
-        self.features_land_df, self.prec_fine_land_df = self.mask_out_ocean(features_df, prec_fine_df)
+        self.features_land_df = self.mask_out_ocean(features_df, prec_fine_df)[0]
         self.features_land_df = self.features_land_df.sort_index(axis=1)
 
         # return self.features_train_land_df, self.prec_fine_train_land_df, self.features_land_df, self.prec_fine_land_df 
+
         return 
 
-    def ensemble_mean(self):
+    def fit_RF(self):
+        """
+        Fit random forests using the training data
+    
+        """
+
+        self.prepare_training_data()
+        self.reg.fit(self.features_train_land_df, np.ravel(self.prec_fine_train_land_df))
+
+        del self.features_train_land_df
+        del self.prec_fine_train_land_df
+        gc.collect()
+
+        return
+
+    def predict_RF_mean(self):
         """
         Use random forests to train and downscale coarse resolution precipitation
     
         """
-        from sklearn.ensemble import RandomForestRegressor
+        
+        prec_pred_df = DataFrame({'prec_fine': np.array([-9.99e+08]*self._nlat_fine*self._nlon_fine*self._ntime)})
+        prec_pre_all = self.reg.predict(self.features_land_df)
+        prec_pred_df['prec_fine'][self.features_land_df.index] = prec_pre_all.astype('float32')
 
-        prec_prediction_df = DataFrame({'prec_fine': np.array([-9.99e+08]*self._nlat_fine*self._nlon_fine*self._ntime)})
-        self.prepare_training_data()
+        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear.bin' 
+                                                      % (self._path_RF_subregion, self._region_name, self._res_coarse, self._res_coarse))
+        return prec_pred_df
 
-        reg = RandomForestRegressor(n_estimators=self._ntree, bootstrap=True, oob_score=True, n_jobs=self._njob)
-        reg.fit(self.features_train_land_df, np.ravel(self.prec_fine_train_land_df))
-        prec_pre_all = reg.predict(self.features_land_df)
-        prec_prediction_df['prec_fine'][self.features_land_df.index] = prec_pre_all.astype('float32')
+    def predict_RF_all(self):
+        """
+        Prediction from each individual decision tree
+    
+        """
 
-        return prec_prediction_df
+        prec_pred_land_trees = np.array([self.reg.estimators_[i].predict(self.features_land_df.values) for i in xrange(self._ntree)])
 
-    def show_prec_image(self, prec_df, itime=0, vmax=None):
+        row_index = range(self._nlat_fine*self._nlon_fine*self._ntime)
+        tree_index = ['tree_%02d'%(i) for i in xrange(self._ntree)]
+        prec_pred_all_trees = DataFrame(index=row_index, columns=tree_index)
+        prec_pred_all_trees = prec_pred_all_trees.fillna(-9.99e+08)
+
+        for i in xrange(self._ntree):
+            print i
+            prec_pred_all_trees['tree_%02d'%(i)][self.features_land_df.index] = prec_pred_land_trees[i].astype('float32')
+
+        tree_hour_image = np.array([prec_pred_all_trees['tree_%02d'%(i)].values.reshape(-1, self._nlat_fine, self._nlon_fine) for i in xrange(self._ntree)])
+        tree_hour_image.tofile('%s/tree_hour_image_%sdeg_%s.bin' % (self._path_RF_subregion, self._res_coarse, self._region_name))
+
+        return
+
+    def cmap_customized(self):
+        """
+        Defined customized color table
+
+        """
+
+        matplotlib.rcParams['pdf.fonttype'] = 42
+        cpalette = np.loadtxt('./WhiteBlueGreenYellowRed.rgb',skiprows=2)/255.
+        cmap = colors.ListedColormap(cpalette, 256)
+        cmap.set_bad('0.8') 
+ 
+        return cmap
+
+    def imshow_prec_obs(self, obs, itime=0, vmax=None):
+        """
+        Plot precipitation using customized color table
+
+        Args:
+            :obs (array): precipitation 
+            :itime (int): ith time step
+            :vmax (float): max value for colorbar 
+    
+        """
+
+        # Show the spatial pattern
+        cmap = self.cmap_customized()
+        plt.figure()
+        M = Basemap(resolution='l', llcrnrlat=self._minlat+0.1, urcrnrlat=self._maxlat+0.1, llcrnrlon=self._minlon+0.1, urcrnrlon=self._maxlon+0.1)
+        M.imshow(np.ma.masked_equal(obs \
+                   .reshape(-1, self._nlat_fine, self._nlon_fine)[itime], -9.99e+08), 
+                   cmap=cmap, 
+                   interpolation='nearest', 
+                   vmin=0, 
+                   vmax=vmax) 
+        M.drawcoastlines()
+        M.drawstates()
+        M.colorbar()
+        plt.title('Observed')
+        # plt.savefig('../../Figures/Animation/%s_SEUS_adjacent_0.5deg_bi-linear_%s.png' % (title, i), format='PNG')
+        plt.show()
+
+    def imshow_prec_pre(self, prec_df, itime=0, vmax=None):
         """
         Plot precipitation using customized color table
 
@@ -370,25 +454,51 @@ class RandomForestsDownScaling(object):
     
         """
 
-        # Plot settings
-        matplotlib.rcParams['pdf.fonttype'] = 42
-        cpalette = np.loadtxt('./WhiteBlueGreenYellowRed.rgb',skiprows=2)/255.
-        cmap = colors.ListedColormap(cpalette, 256)
-        cmap.set_bad('0.7') 
-
         # Show the spatial pattern
+        cmap = self.cmap_customized()
         plt.figure()
-        plt.imshow(np.ma.masked_equal(prec_df['prec_fine'] \
-                   .reshape(-1, self._nlat_fine, self._nlon_fine)[itime][::-1], -9.99e+08), 
+        M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
+        M.imshow(np.ma.masked_equal(prec_df['prec_fine'] \
+                   .reshape(-1, self._nlat_fine, self._nlon_fine)[itime], -9.99e+08), 
                    cmap=cmap, 
                    interpolation='nearest', 
                    vmin=0, 
                    vmax=vmax) 
-        plt.colorbar()
-        plt.xticks([])
-        plt.yticks([])
-        # plt.title('%s' %(title))
+        M.drawcoastlines()
+        M.drawstates()
+        M.colorbar()
+        plt.title('Downscaled (%s deg)' %(self._res_coarse))
         # plt.savefig('../../Figures/Animation/%s_SEUS_adjacent_0.5deg_bi-linear_%s.png' % (title, i), format='PNG')
+        plt.show()
+
+    def plot_treeEns(self, xxx, stime=0, etime=None):
+        """
+        Plot precipitation ensembles
+
+        Args:
+            :prec_df (df): precipitation dataframe
+            :stime (int): start time step
+            :etime (int): end time step
+    
+        """
+
+        # !!!Need to be modified
+        data_path = '../../Data/Output/RF/'
+
+        ### Read datasets
+        prec_fine = np.fromfile('%s/apcpsfc_2011_JJA_SEUS.bin' % (data_path),'float32').reshape(-1, nlat_fine, nlon_fine)[:ntime]
+        tree_image = np.fromfile('%s/tree_hour_image_LargeMeteo_1deg_P_1deg.bin' % (data_path)).reshape(nTree, ntime, nlat_fine, nlon_fine)
+        obs_hour = np.ma.masked_equal(prec_fine,-9.99e+08).mean(-1).mean(-1)
+        tree_hour = np.ma.masked_equal(tree_image,-9.99e+08).mean(-1).mean(-1).data
+        stats = cbook.boxplot_stats(tree_hour)
+
+        fig, ax = plt.subplots(figsize=(10,5))
+        plt.subplots_adjust(left=0.075, right=0.95, top=0.9, bottom=0.1)
+        ax.bxp(stats[sTime:eTime])
+        plt.plot(obs_hour[sTime:eTime],linewidth=2.5,color='r')
+        plt.xticks([])
+        plt.xlabel('Time (%s-%s)'%(sTime, eTime))
+        plt.title('Domain Averaged Prep')
         plt.show()
 
     def plot_feature_importance(reg, feature_num, feature_name):
