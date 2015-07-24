@@ -25,6 +25,7 @@ grads_exe = '/home/wind/hexg/opengrads/grads'
 ga = grads.GrADS(Bin=grads_exe, Window=False, Echo=False)
 import sys
 import gc
+from sklearn.metrics import mean_squared_error, r2_score
 
 class RandomForestsDownScaling(object):
     
@@ -402,6 +403,41 @@ class RandomForestsDownScaling(object):
 
         return
 
+    def read_prec_downscaled(self, resolution=None):
+        """
+        This function is used to read the downscaled precipitation from output file
+    
+        Args:
+            :resolution (str): coarse resolution 
+    
+        """
+
+        resolution = resolution or self._res_coarse
+        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear.bin' % 
+                          (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine)
+
+        return prec_downscaled
+
+    def score_RMSE_R2(self, resolution=None):
+        """
+        This function is used to calculate the RMSE value
+    
+        Args:
+            :resolution (str): coarse resolution 
+    
+        """
+
+        prec_observed = self.prepare_prec_fine()
+        prec_downscaled = self.read_prec_downscaled(resolution)
+
+        prec_observed_valid = prec_observed[prec_downscaled > -9.99e+08]
+        prec_downscaled_valid = prec_downscaled[prec_downscaled > -9.99e+08]
+
+        score_RMSE = mean_squared_error(prec_observed_valid, prec_downscaled_valid)**0.5
+        score_R2 = r2_score(prec_observed_valid, prec_downscaled_valid)
+
+        return score_RMSE, score_R2
+
     def cmap_customized(self):
         """
         Defined customized color table
@@ -612,6 +648,7 @@ class RandomForestsDownScaling(object):
         data_fine_group_label = (data_fine_group_mask>0).astype('float')
         prec_frac_area = data_fine_group_label.mean(-1).mean(-1)
         prec_intensity = data_fine_group_mask.mean(-1).mean(-1)
+
         return prec_frac_area, prec_intensity
 
     def pred_ints(model, X, percentile=95):
@@ -624,6 +661,7 @@ class RandomForestsDownScaling(object):
         preds = np.array([model.estimators_[i].predict(X) for i in range(tree_num)])
         err_down = np.percentile(preds, (100-percentile)/2., axis=0)
         err_up = np.percentile(preds, 100-(100-percentile)/2., axis=0)
+
         return err_down, err_up, preds
 
     def print_info_to_command_line(line):
