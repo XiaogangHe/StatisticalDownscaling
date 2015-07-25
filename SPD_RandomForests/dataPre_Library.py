@@ -438,6 +438,39 @@ class RandomForestsDownScaling(object):
 
         return score_RMSE, score_R2
 
+    def score_QQ(self, resolution=None):
+        """
+        Use this function to output the sample quantiles for observed and downscaled precipitation
+    
+        Args:
+            :resolution (str): coarse resolution 
+    
+        """
+
+        import statsmodels.api as sm
+        resolution = resolution or self._res_coarse
+
+        prec_observed = self.prepare_prec_fine()
+        prec_downscaled = self.read_prec_downscaled(resolution)
+
+        prec_observed_valid = prec_observed[prec_downscaled > -9.99e+08]
+        prec_downscaled_valid = prec_downscaled[prec_downscaled > -9.99e+08]
+
+        pp_observed = sm.ProbPlot(prec_observed_valid, fit=True)
+        pp_downscaled = sm.ProbPlot(prec_downscaled_valid, fit=True)
+
+        plt.figure()
+        plt.scatter(pp_downscaled.sample_quantiles, pp_observed.sample_quantiles)
+        plt.xlabel('Downscaled')
+        plt.ylabel('Obs')
+        plt.title('%s deg' % (resolution))
+        plt.show()
+
+        pp_observed.sample_quantiles.tofile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+        pp_downscaled.sample_quantiles.tofile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+
+        return 
+
     def cmap_customized(self):
         """
         Defined customized color table
