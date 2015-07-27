@@ -492,8 +492,6 @@ class RandomForestsDownScaling(object):
         ### Calculate and save ROC metrics
         fpr, tpr, thresholds = roc_curve(prec_observed_valid, prec_downscaled_valid, pos_label=2)
         roc_auc = auc(fpr,tpr)
-        np.savez('%s/ROC_statistics_LargeMeteo_%sdeg_P_%sdeg_%s.npz' % (self._path_RF_subregion, resolution, resolution, self._region_name), 
-                 fpr=fpr, tpr=tpr, auc=roc_auc, thresholds=thresholds)
 
         plt.figure()
         plt.plot(fpr, tpr, linewidth=2.5, label='ROC curve (area = %0.2f)' % roc_auc)
@@ -503,6 +501,35 @@ class RandomForestsDownScaling(object):
         plt.ylim([0.4,1.05])
         plt.legend(loc='best')
         plt.show()
+
+        np.savez('%s/ROC_statistics_LargeMeteo_%sdeg_P_%sdeg_%s.npz' % (self._path_RF_subregion, resolution, resolution, self._region_name), 
+                 fpr=fpr, tpr=tpr, auc=roc_auc, thresholds=thresholds)
+
+        return
+
+    def score_feature_importance(self):
+        """
+        Save the feature importance
+    
+        """
+
+        self.fit_RF()
+        importances = self.reg.feature_importances_
+        feature_num = importances.shape[0]
+        covariate_name = list(self.features_land_df.columns.values)
+        std = np.std([tree.feature_importances_ for tree in self.reg.estimators_], axis=0)
+        indices = np.argsort(importances)[::-1]    
+        covariate_name_sort = [covariate_name[indices[i]] for i in range(feature_num)]
+    
+        fig = plt.figure(figsize=(8,6))
+        ax = fig.add_axes([0.1, 0.2, 0.8, 0.7])
+        ax.bar(range(feature_num), importances[indices], color="r", yerr=std[indices], align="center")
+        ax.set_xlim([-1, feature_num])
+        ax.set_xticks(range(feature_num))
+        ax.set_xticklabels(covariate_name_sort, rotation=90)
+        ax.set_title("Feature importances")
+
+        np.savez('%s/feature_importance_LargeMeteo_%sdeg_P_%sdeg_%s.npz' % (self._path_RF_subregion, self._res_coarse ,self._res_coarse, self._region_name), importance=importances)
 
         return
 
@@ -604,20 +631,6 @@ class RandomForestsDownScaling(object):
         plt.xlabel('Time (%s-%s)'%(sTime, eTime))
         plt.title('Domain Averaged Prep')
         plt.show()
-
-    def plot_feature_importance(reg, feature_num, feature_name):
-        importances = reg.feature_importances_
-        std = np.std([tree.feature_importances_ for tree in reg.estimators_], axis=0)
-        indices = np.argsort(importances)[::-1]    
-        feature_name_sort = [feature_name[indices[i]] for i in range(feature_num)]
-    
-        fig = plt.figure(figsize=(8,6))
-        ax = fig.add_axes([0.1, 0.2, 0.8, 0.7])
-        ax.bar(range(feature_num), importances[indices], color="r", yerr=std[indices], align="center")
-        ax.set_xlim([-1, feature_num])
-        ax.set_xticks(range(feature_num))
-        ax.set_xticklabels(feature_name_sort, rotation=90)
-        ax.set_title("Feature importances")
 
     def plot_spatial_corr(nlon, nlat, data):
         """
