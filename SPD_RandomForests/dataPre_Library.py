@@ -471,6 +471,41 @@ class RandomForestsDownScaling(object):
 
         return 
 
+    def score_ROC(self, resolution=None):
+        """
+        Use this function to output the sample quantiles for observed and downscaled precipitation
+    
+        Args:
+            :resolution (str): coarse resolution 
+    
+        """
+
+        from sklearn.metrics import roc_curve, auc, accuracy_score
+        resolution = resolution or self._res_coarse
+
+        prec_observed = self.prepare_prec_fine()
+        prec_downscaled = self.read_prec_downscaled(resolution)
+
+        prec_observed_valid = prec_observed[prec_downscaled > -9.99e+08]
+        prec_downscaled_valid = prec_downscaled[prec_downscaled > -9.99e+08]
+
+        ### Calculate and save ROC metrics
+        fpr, tpr, thresholds = roc_curve(prec_observed_valid, prec_downscaled_valid, pos_label=2)
+        roc_auc = auc(fpr,tpr)
+        np.savez('%s/ROC_statistics_LargeMeteo_%sdeg_P_%sdeg_%s.npz' % (self._path_RF_subregion, resolution, resolution, self._region_name), 
+                 fpr=fpr, tpr=tpr, auc=roc_auc, thresholds=thresholds)
+
+        plt.figure()
+        plt.plot(fpr, tpr, linewidth=2.5, label='ROC curve (area = %0.2f)' % roc_auc)
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.xlim([0,0.2])
+        plt.ylim([0.4,1.05])
+        plt.legend(loc='best')
+        plt.show()
+
+        return
+
     def cmap_customized(self):
         """
         Defined customized color table
