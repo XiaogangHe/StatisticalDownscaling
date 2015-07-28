@@ -515,11 +515,15 @@ class RandomForestsDownScaling(object):
 
         self.fit_RF()
         importances = self.reg.feature_importances_
+        indices = np.argsort(importances)    
+        np.savez('%s/feature_importance_LargeMeteo_%sdeg_P_%sdeg_%s.npz' % (self._path_RF_subregion, self._res_coarse ,self._res_coarse, self._region_name), importance=importances, rank=indices)
+
         feature_num = importances.shape[0]
+        indices = indices[::-1]
         covariate_name = list(self.features_land_df.columns.values)
         std = np.std([tree.feature_importances_ for tree in self.reg.estimators_], axis=0)
-        indices = np.argsort(importances)[::-1]    
         covariate_name_sort = [covariate_name[indices[i]] for i in range(feature_num)]
+        print covariate_name_sort
     
         fig = plt.figure(figsize=(8,6))
         ax = fig.add_axes([0.1, 0.2, 0.8, 0.7])
@@ -528,8 +532,6 @@ class RandomForestsDownScaling(object):
         ax.set_xticks(range(feature_num))
         ax.set_xticklabels(covariate_name_sort, rotation=90)
         ax.set_title("Feature importances")
-
-        np.savez('%s/feature_importance_LargeMeteo_%sdeg_P_%sdeg_%s.npz' % (self._path_RF_subregion, self._res_coarse ,self._res_coarse, self._region_name), importance=importances)
 
         return
 
@@ -631,6 +633,43 @@ class RandomForestsDownScaling(object):
         plt.xlabel('Time (%s-%s)'%(sTime, eTime))
         plt.title('Domain Averaged Prep')
         plt.show()
+
+    def plot_feature_importance(self):
+        """
+        Plot feature importance
+    
+        """
+
+        imp_ref = np.load('%s/feature_importance_LargeMeteo_0.25deg_P_0.25deg_%s.npz' % (self._path_RF_subregion, self._region_name))
+        sorted_idx = imp_ref['rank']
+        print sorted_idx
+
+        resolution = [0.25, 0.5, 1]
+        colors = ['#f03b20', '#feb24c', '#c51b8a']        # For upscaled atmospheric covariates
+        # colors = ['#31a354', '#addd8e', '#67a9cf']      # For 0.125 deg atmospheric covariates
+        width = [1.4, 1, 0.6]
+        plt.rc('font', **{'family':'Arial', 'size':15})
+        fig = plt.figure(figsize=(6,8))
+        ax_size = [0.1, 0.1, 0.8, 0.8]
+        ax = fig.add_axes(ax_size)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.xaxis.tick_top()
+        ax.yaxis.set_ticks_position('none')
+        ax.xaxis.set_label_position('top')
+        ax.set_yticklabels([])
+        pos = np.arange(sorted_idx.shape[0]) + 0.5
+        pos = pos*2
+        plt.xlim([0, 0.8])
+
+        for i, iRes in enumerate(resolution):
+            feature_importance = np.load('%s/feature_importance_LargeMeteo_%sdeg_P_%sdeg_%s.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
+            importance = feature_importance['importance']
+            ax.barh(pos, importance[sorted_idx], width[i], color=colors[i], align='center', linewidth=0, alpha=1)
+
+        plt.show()
+
+        return
 
     def plot_spatial_corr(nlon, nlat, data):
         """
