@@ -671,6 +671,33 @@ class RandomForestsDownScaling(object):
 
         return
 
+    def plot_QQ(self):
+        """
+        Plot quantile quantile plot 
+    
+        """
+
+        resolution = [0.25, 0.5, 1]
+        colors = ['#f03b20', '#feb24c', '#c51b8a']        # For upscaled atmospheric covariates
+        # colors = ['#31a354', '#addd8e', '#67a9cf']      # For 0.125 deg atmospheric covariates
+        fig = plt.figure(figsize=(6, 6))
+
+        for i, iRes in enumerate(resolution):
+            qq_obs1 = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
+            qq_pred1 = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
+            plt.scatter(qq_pred1, qq_obs1, color=colors[i], alpha=1, label='%s deg' % (iRes))
+
+        plt.rc('font', family='Arial')
+        #plt.xlim([-10, 50])
+        #plt.ylim([-10, 50])
+        plt.plot([-10, 200], [-10, 200], 'k--', linewidth=1.5)
+        leg = plt.legend(loc=2, prop={'size':15})
+        leg.get_frame().set_linewidth(0.0)
+        #plt.xlabel('Downscaled', size=20)
+        #plt.ylabel('Observed', size=20)
+        #plt.title('Q-Q Plot', size=25)
+        plt.show()
+
     def plot_spatial_corr(nlon, nlat, data):
         """
         Plot the spatial correlation using R's 'ncf' package
