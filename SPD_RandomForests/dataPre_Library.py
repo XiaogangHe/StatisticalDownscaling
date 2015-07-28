@@ -698,6 +698,37 @@ class RandomForestsDownScaling(object):
         #plt.title('Q-Q Plot', size=25)
         plt.show()
 
+        return
+
+    def plot_ROC(self):
+        """
+        Plot ROC (Receiver Operating Characteristic) plot 
+    
+        """
+
+        resolution = [0.25, 0.5, 1]
+        colors = ['#f03b20', '#feb24c', '#c51b8a']        # For upscaled atmospheric covariates
+        # colors = ['#31a354', '#addd8e', '#67a9cf']      # For 0.125 deg atmospheric covariates
+        fig = plt.figure(figsize=(6, 6))
+
+        for i, iRes in enumerate(resolution):
+            ROC_metrics_1 = np.load('%s/ROC_statistics_LargeMeteo_%sdeg_P_%sdeg_NWUS.npz' % (self._path_RF_subregion, iRes, iRes))
+            #ROC_metrics_2 = np.load('%s/ROC_statistics_LargeMeteo_0.125deg_P_%s.npz' % (data_path, iRes))
+            plt.plot(ROC_metrics_1['fpr'], ROC_metrics_1['tpr'], colors[i], linewidth=2.5, label='%s deg (AUC = %0.2f)' % (iRes, ROC_metrics_1['auc']))
+            #plt.plot(ROC_metrics_2['fpr'], ROC_metrics_2['tpr'], colors_2[i], linewidth=2.5, label='%s (AUC = %0.2f)' % (iRes, ROC_metrics_2['auc']))
+
+        plt.rc('font', family='Arial')
+        plt.xlim([-0.05, 0.25])
+        plt.ylim([0.4, 1.05])
+        plt.legend(loc=4, prop={'size':15})
+        plt.xlabel('False Positive Ratio', size=20)
+        plt.ylabel('True Positive Ratio', size=20)
+        plt.title('ROC Curve', size=25)
+        #plt.savefig('./ROC_curve_2.png')
+        plt.show()
+
+        return
+
     def plot_spatial_corr(nlon, nlat, data):
         """
         Plot the spatial correlation using R's 'ncf' package
