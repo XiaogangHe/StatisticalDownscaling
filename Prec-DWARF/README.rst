@@ -2,7 +2,7 @@
 Prec-DWARF
 ##########
 
-Prec-DWARF (**Prec**ipitation **D**o**W**nsc**A**ling with **R**andom **F**orests) is to downscale `NLDAS2
+Prec-DWARF (**Prec** ipitation **D** o **W** nsc **A** ling with **R** andom **F** orests) is to downscale `NLDAS2
 <http://ldas.gsfc.nasa.gov/nldas/NLDAS2forcing.php>`_ precipitation data.
 
 Strong emphasis, aka bold, with **asterisks** or __underscores__.
