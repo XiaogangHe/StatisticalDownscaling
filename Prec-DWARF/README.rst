@@ -6,7 +6,8 @@ Prec-DWARF (<b>Prec</b>ipitation <b>D</b>o<b>W</b>nsc<b>A</b>ling with <b>R</b>a
 <http://ldas.gsfc.nasa.gov/nldas/NLDAS2forcing.php>`_ precipitation data.
 
 Strong emphasis, aka bold, with **asterisks** or __underscores__.
-\*\*H\*\*ello
+
+<strong>H</strong>Hello
 
 Code and Installation
 =============
