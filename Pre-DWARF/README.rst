@@ -2,7 +2,7 @@
 Prec-DWARF
 ##########
 
-Prec-DWARF ("__Prec__ipitation __D__o__W__nsc__A__ling with __R__andom __F__orests") is to downscale `NLDAS2
+Prec-DWARF (__Prec__ipitation __D__o__W__nsc__A__ling with __R__andom __F__orests) is to downscale `NLDAS2
 <http://ldas.gsfc.nasa.gov/nldas/NLDAS2forcing.php>`_ precipitation data.
 
 Code and Installation
