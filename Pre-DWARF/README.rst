@@ -1,8 +1,8 @@
 ##########
-RFSD
+Prec-DWARF
 ##########
 
-RFSD ("Random Forests for Statistical Downscaling") is to downscale `NLDAS2
+Prec-DWARF ("Precipitation DoWnscAling with Random Forests") is to downscale `NLDAS2
 <http://ldas.gsfc.nasa.gov/nldas/NLDAS2forcing.php>`_ precipitation data.
 
 Code and Installation
