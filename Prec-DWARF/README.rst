@@ -5,13 +5,15 @@ Prec-DWARF
 Prec-DWARF (__Prec__ipitation __D__o__W__nsc__A__ling with __R__andom __F__orests) is to downscale `NLDAS2
 <http://ldas.gsfc.nasa.gov/nldas/NLDAS2forcing.php>`_ precipitation data.
 
+Strong emphasis, aka bold, with **asterisks** or __underscores__.
+
 Code and Installation
 =============
 Details coming soon.
 
 Homepage
 =============
-https://github.com/XiaogangHe/StatisticalDownscaling/tree/master/Pre-DWARF
+https://github.com/XiaogangHe/StatisticalDownscaling/tree/master/Prec-DWARF
 
 Required Dependencies
 =============
