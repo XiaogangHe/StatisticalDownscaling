@@ -2,7 +2,7 @@
 Prec-DWARF
 ##########
 
-Prec-DWARF ("Precipitation DoWnscAling with Random Forests") is to downscale `NLDAS2
+Prec-DWARF ("__Prec__ipitation __D__o__W__nsc__A__ling with __R__andom __F__orests") is to downscale `NLDAS2
 <http://ldas.gsfc.nasa.gov/nldas/NLDAS2forcing.php>`_ precipitation data.
 
 Code and Installation
@@ -11,7 +11,7 @@ Details coming soon.
 
 Homepage
 =============
-https://github.com/XiaogangHe/StatisticalDownscaling/tree/master/SPD_RandomForests
+https://github.com/XiaogangHe/StatisticalDownscaling/tree/master/Pre-DWARF
 
 Required Dependencies
 =============
