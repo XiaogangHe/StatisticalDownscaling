@@ -7,7 +7,7 @@ Prec-DWARF (<b>Prec</b>ipitation <b>D</b>o<b>W</b>nsc<b>A</b>ling with <b>R</b>a
 
 Strong emphasis, aka bold, with **asterisks** or __underscores__.
 
-<strong>H</strong>Hello
+Stack​**Overflow**
 
 Code and Installation
 =============
