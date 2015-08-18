@@ -2,10 +2,8 @@
 Prec-DWARF
 ##########
 
-Prec-DWARF (<b>Prec</b>ipitation <b>D</b>o<b>W</b>nsc<b>A</b>ling with <b>R</b>andom <b>F</b>orests) is to downscale `NLDAS2
+Prec-DWARF (Precipitation DoWnscAling with Random Forests) is to downscale `NLDAS2
 <http://ldas.gsfc.nasa.gov/nldas/NLDAS2forcing.php>`_ precipitation data.
-
-Strong emphasis, aka bold, with **asterisks** or __underscores__.
 
 Code and Installation
 =============
@@ -40,17 +38,3 @@ References
 =============
 In preparation.
 
-```html
-<h2>Example of code</h2>
-
-<pre>
-    <div class="container">
-        <div class="block two first">
-            <h2>Your title</h2>
-            <div class="wrap">
-            Your content
-            </div>
-        </div>
-    </div>
-</pre>
-```
