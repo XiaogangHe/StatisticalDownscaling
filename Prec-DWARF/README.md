@@ -1,6 +1,6 @@
 # Prec-DWARF
 
-Prec-DWARF (<b>Prec</b>ipitation <b>D</b>o<b>W</b>nsc<b>A</b>ling with <b>R</b>andom <b>F</b>orests) is to downscale [NLDAS2](https://ldas.gsfc.nasa.gov/nldas/NLDAS2forcing.php "NLDAS2 focing") precipitation data.
+Prec-DWARF (<b>Prec</b>ipitation <b>D</b>o<b>W</b>nsc<b>A</b>ling with <b>R</b>andom <b>F</b>orests) is to downscale [NLDAS2](http://ldas.gsfc.nasa.gov/nldas/NLDAS2forcing.php "NLDAS2 focing") precipitation data.
 
 ## Code and Installation
 Details coming soon.
