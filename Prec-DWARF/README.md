@@ -1,25 +1,18 @@
-##########
-Prec-DWARF
-##########
+# Prec-DWARF
 
-Prec-DWARF (Precipitation DoWnscAling with Random Forests) is to downscale `NLDAS2
-<http://ldas.gsfc.nasa.gov/nldas/NLDAS2forcing.php>`_ precipitation data.
+Prec-DWARF (<b>Prec</b>ipitation <b>D</b>o<b>W</b>nsc<b>A</b>ling with <b>R</b>andom <b>F</b>orests) is to downscale [NLDAS2](https://ldas.gsfc.nasa.gov/nldas/NLDAS2forcing.php "NLDAS2 focing") precipitation data.
 
-Code and Installation
-=============
+## Code and Installation
 Details coming soon.
 
-Homepage
-=============
+## Homepage
 https://github.com/XiaogangHe/StatisticalDownscaling/tree/master/Prec-DWARF
 
-Required Dependencies
-=============
+## Required Dependencies
 
 Required dependencies for RFSD package are listed below.
 
-Python Packages
------------------
+### Python Packages
 
 * gdal 1.10.1
 * matplotlib 1.4.2 (basemap toolkit 1.0.7)
@@ -28,13 +21,11 @@ Python Packages
 * rpy2 2.3.9 (R version 3.0.3)
 * scipy 0.13.3
 
-R Packages
------------------
+### R Packages
 
 * gstat 1.0-18
 * sp 1.0-14
 
-References
-=============
+## References
 In preparation.
 
