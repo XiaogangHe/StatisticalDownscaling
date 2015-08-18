@@ -10,7 +10,7 @@ https://github.com/XiaogangHe/StatisticalDownscaling/tree/master/Prec-DWARF
 
 ## Required Dependencies
 
-Required dependencies for RFSD package are listed below.
+Required dependencies for Prec-DWARF package are listed below.
 
 ### Python Packages
 
@@ -20,6 +20,7 @@ Required dependencies for RFSD package are listed below.
 * numpy 1.9.1
 * rpy2 2.3.9 (R version 3.0.3)
 * scipy 0.13.3
+* pygrads 1.1.9
 
 ### R Packages
 
