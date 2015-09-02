@@ -225,8 +225,12 @@ class RandomForestsDownScaling(object):
         loc_wet = loc_wet.reshape(1,-1).squeeze()
 
         # Use KDTree to find the closest distance
-        tree = KDTree(lat_lon[loc_dry], leaf_size=2)
-        dist_wet = tree.query(lat_lon[loc_wet], k=1)[0]
+        if len(lat_lon[loc_wet]) == 0:
+            dist_wet = 0
+        else:
+            tree = KDTree(lat_lon[loc_dry], leaf_size=2)
+            dist_wet = tree.query(lat_lon[loc_wet], k=1)[0]
+
         dist_all = np.array([-9.99e+08]*self._nlat_fine*self._nlon_fine)
         dist_all[loc_dry] = 0
         dist_all[loc_wet] = dist_wet
