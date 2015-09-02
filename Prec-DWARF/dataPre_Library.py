@@ -204,6 +204,36 @@ class RandomForestsDownScaling(object):
         lats = np.array([lats]*self._ntime)
         return lons, lats
 
+    def get_closest_distance(self, prec_2d):
+        """
+        Get the closest distance to the surrounding dry grid cells
+        Input:  prec_2d: 2-d array
+    
+        """
+        from sklearn.neighbors import KDTree
+        
+        # Prepare the coordinates
+        lons, lats = self.get_lons_lats()
+        lat_lon = np.hstack([lats[0].reshape(-1,1), lons[0].reshape(-1,1)])
+        
+        # Find out the dry/wet/ocean grids
+        loc_ocean = prec_2d == -9.99e+08
+        loc_dry = prec_2d == 0
+        loc_wet = prec_2d > 0
+        loc_ocean = loc_ocean.reshape(1,-1).squeeze()
+        loc_dry = loc_dry.reshape(1,-1).squeeze()
+        loc_wet = loc_wet.reshape(1,-1).squeeze()
+
+        # Use KDTree to find the closest distance
+        tree = KDTree(lat_lon[loc_dry], leaf_size=2)
+        dist_wet = tree.query(lat_lon[loc_wet], k=1)[0]
+        dist_all = np.array([-9.99e+08]*self._nlat_fine*self._nlon_fine)
+        dist_all[loc_dry] = 0
+        dist_all[loc_wet] = dist_wet
+        dist_all = dist_all.reshape(self._nlat_fine, self._nlon_fine)
+        
+        return dist_all
+
     def prepare_regional_data(self):
         """
         Subset regional data and save to the local disk
@@ -553,7 +583,7 @@ class RandomForestsDownScaling(object):
         Plot precipitation using customized color table
 
         Args:
-            :obs (array): precipitation 
+            :obs (array): observed precipitation 
             :itime (int): ith time step
             :vmax (float): max value for colorbar 
     
@@ -576,12 +606,12 @@ class RandomForestsDownScaling(object):
         # plt.savefig('../../Figures/Animation/%s_SEUS_adjacent_0.5deg_bi-linear_%s.png' % (title, i), format='PNG')
         plt.show()
 
-    def imshow_prec_pre(self, prec_df, itime=0, vmax=None):
+    def imshow_prec_pre(self, pre, itime=0, vmax=None, title=None):
         """
         Plot precipitation using customized color table
 
         Args:
-            :prec_df (df): precipitation dataframe
+            :pre (array): downscaled precipitation
             :itime (int): ith time step
             :vmax (float): max value for colorbar 
     
@@ -591,7 +621,7 @@ class RandomForestsDownScaling(object):
         cmap = self.cmap_customized()
         plt.figure()
         M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
-        M.imshow(np.ma.masked_equal(prec_df['prec_fine'] \
+        M.imshow(np.ma.masked_equal(pre
                    .reshape(-1, self._nlat_fine, self._nlon_fine)[itime], -9.99e+08), 
                    cmap=cmap, 
                    interpolation='nearest', 
@@ -600,7 +630,7 @@ class RandomForestsDownScaling(object):
         M.drawcoastlines()
         M.drawstates()
         M.colorbar()
-        plt.title('Downscaled (%s deg)' %(self._res_coarse))
+        plt.title('%s' %(title))
         # plt.savefig('../../Figures/Animation/%s_SEUS_adjacent_0.5deg_bi-linear_%s.png' % (title, i), format='PNG')
         plt.show()
 
