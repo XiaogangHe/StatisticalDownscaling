@@ -227,6 +227,8 @@ class RandomForestsDownScaling(object):
         # Use KDTree to find the closest distance
         if len(lat_lon[loc_wet]) == 0:
             dist_wet = 0
+        elif len(lat_lon[loc_dry]) == 0:
+            dist_wet = 10    # Arbitrary value
         else:
             tree = KDTree(lat_lon[loc_dry], leaf_size=2)
             dist_wet = tree.query(lat_lon[loc_wet], k=1)[0]
@@ -288,6 +290,9 @@ class RandomForestsDownScaling(object):
         self.features_dic['lons'] = self.get_lons_lats()[0]
         self.features_dic['lats'] = self.get_lons_lats()[1]
 
+        # Add the closest distance to dry grid cells as covariates
+        self.features_dic['distance'] = np.array([self.get_closest_distance(prec_UpDown[i]) for i in xrange(self._ntime)]) 
+
         #return self.features_dic
         return 
 
@@ -340,7 +345,7 @@ class RandomForestsDownScaling(object):
         self.prec_fine_train = [] 
         
         dynamic_feature_update = [name for name in self._features_dynamic if name != 'prec']
-        dynamic_feature_update.extend(['DOY', 'lons', 'lats'])            
+        dynamic_feature_update.extend(['DOY', 'lons', 'lats', 'distance'])            
         self.prec_feature = ['prec_disagg_c', 'prec_disagg_l', 'prec_disagg_r', 'prec_disagg_u', 'prec_disagg_d']
 
         for i in xrange(self._ntime):
@@ -411,7 +416,7 @@ class RandomForestsDownScaling(object):
         prec_pre_all = self.reg.predict(self.features_land_df)
         prec_pred_df['prec_fine'][self.features_land_df.index] = prec_pre_all.astype('float32')
 
-        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear.bin' 
+        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist.bin' 
                                                       % (self._path_RF_subregion, self._region_name, self._res_coarse, self._res_coarse))
         return prec_pred_df
 
@@ -447,7 +452,7 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = resolution or self._res_coarse
-        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear.bin' % 
+        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist.bin' % 
                           (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine)
 
         return prec_downscaled
