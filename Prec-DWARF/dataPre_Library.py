@@ -54,6 +54,7 @@ class RandomForestsDownScaling(object):
         self._stime = date_info['stime']
         self._ftime = date_info['ftime']
         self._ntime = date_info['ntime']
+        self._prec_scale = data_info['prec_scale']
         self._path_RF = data_info['path_RF']
         self._path_RF_subregion = data_info['path_RF'] + '/' + region_info['name']
         self._path_NLDAS2 = data_info['path_NLDAS2']
@@ -276,6 +277,9 @@ class RandomForestsDownScaling(object):
         self.features_dic.update(features_dic_dynamic)
 
         # Add adjacent precipitation grid cells as covariates
+        if self._prec_scale == 'log':
+            self.features_dic['prec'][self.features_dic['prec']>0] = np.log10(self.features_dic['prec'][self.features_dic['prec']>0]) 
+
         prec_UpDown = self.features_dic['prec']
         self.prec_UpDown_extend = np.array([self.extend_array_boundary(prec_UpDown[i]) for i in xrange(self._ntime)])
         self.features_dic['prec_disagg_l'] = self.prec_UpDown_extend[:, 1:-1, :-2]
@@ -293,7 +297,7 @@ class RandomForestsDownScaling(object):
         # Add the closest distance to dry grid cells as covariates
         self.features_dic['distance'] = np.array([self.get_closest_distance(prec_UpDown[i]) for i in xrange(self._ntime)]) 
 
-        #return self.features_dic
+        # return self.features_dic
         return 
 
     def prepare_prec_fine(self):
@@ -304,7 +308,11 @@ class RandomForestsDownScaling(object):
         prec_fine = np.fromfile('%s/prec_2011_JJA_%s.bin' 
                                      % (self._path_RF_subregion, self._region_name), 'float32'). \
                                      reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime]
-        return prec_fine
+        if self._prec_scale == 'linear':
+            return prec_fine
+        if self._prec_scale == 'log':
+            prec_fine[prec_fine>0] = np.log10(prec_fine[prec_fine>0])
+            return prec_fine
 
     def mask_out_ocean(self, covariates_df, response_df):
         """
@@ -416,7 +424,7 @@ class RandomForestsDownScaling(object):
         prec_pre_all = self.reg.predict(self.features_land_df)
         prec_pred_df['prec_fine'][self.features_land_df.index] = prec_pre_all.astype('float32')
 
-        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist.bin' 
+        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist_log.bin' 
                                                       % (self._path_RF_subregion, self._region_name, self._res_coarse, self._res_coarse))
         return prec_pred_df
 
@@ -452,7 +460,7 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = resolution or self._res_coarse
-        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist.bin' % 
+        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist_log.bin' % 
                           (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine)
 
         return prec_downscaled
@@ -615,7 +623,7 @@ class RandomForestsDownScaling(object):
         # plt.savefig('../../Figures/Animation/%s_SEUS_adjacent_0.5deg_bi-linear_%s.png' % (title, i), format='PNG')
         plt.show()
 
-    def imshow_prec_pre(self, pre, itime=0, vmax=None, title=None):
+    def imshow_prec_pre(self, pre, itime=0, vmax=None, vmin=0, title=None):
         """
         Plot precipitation using customized color table
 
@@ -634,7 +642,7 @@ class RandomForestsDownScaling(object):
                    .reshape(-1, self._nlat_fine, self._nlon_fine)[itime], -9.99e+08), 
                    cmap=cmap, 
                    interpolation='nearest', 
-                   vmin=0, 
+                   vmin=vmin, 
                    vmax=vmax) 
         M.drawcoastlines()
         M.drawstates()
