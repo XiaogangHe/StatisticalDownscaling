@@ -424,6 +424,9 @@ class RandomForestsDownScaling(object):
         prec_pre_all = self.reg.predict(self.features_land_df)
         prec_pred_df['prec_fine'][self.features_land_df.index] = prec_pre_all.astype('float32')
 
+        if self._prec_scale == 'log':
+            ind = prec_pred_df['prec_fine'] != 0
+            prec_pred_df['prec_fine'][ind] = np.power(10, prec_pred_df['prec_fine'][ind])
         prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist_log.bin' 
                                                       % (self._path_RF_subregion, self._region_name, self._res_coarse, self._res_coarse))
         return prec_pred_df
@@ -513,8 +516,8 @@ class RandomForestsDownScaling(object):
         plt.title('%s deg' % (resolution))
         plt.show()
 
-        pp_observed.sample_quantiles.tofile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
-        pp_downscaled.sample_quantiles.tofile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+        pp_observed.sample_quantiles.tofile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s_with_dist_log.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+        pp_downscaled.sample_quantiles.tofile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_with_dist_log.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
 
         return 
 
