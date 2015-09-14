@@ -41,6 +41,10 @@ class RandomForestsDownScaling(object):
     """
 
     def __init__(self, region_info, date_info, data_info, RF_config, features_name):
+        self._minlat_CONUS = 25.0625
+        self._minlon_CONUS = -124.9375
+        self._nlat_fine_CONUS = 224
+        self._nlon_fine_CONUS = 464
         self._region_name = region_info['name']
         self._minlat = region_info['minlat']
         self._minlon = region_info['minlon']
@@ -251,10 +255,8 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = resolution or self._res_coarse
-        nlat_fine_CONUS = 224
-        nlon_fine_CONUS = 464
         prec_UpDown_CONUS = np.fromfile('%s/apcpsfc_UpDown_%sdeg_2011_JJA_CONUS_bi-linear.bin' % \
-                (self._path_RF, resolution),'float32').reshape(-1, nlat_fine_CONUS, nlon_fine_CONUS)[:self._ntime]
+                (self._path_RF, resolution),'float32').reshape(-1, self._nlat_fine_CONUS, self._nlon_fine_CONUS)[:self._ntime]
 
         return prec_UpDown_CONUS
 
@@ -273,6 +275,23 @@ class RandomForestsDownScaling(object):
         dist_CONUS.tofile('%s/distance_syn_%sdeg_2011_JJA_CONUS.bin' % (self._path_RF, resolution))
 
         return dist_CONUS
+
+    def subset_closest_distance_CONUS(self, resolution=None):
+        """
+        Subset the closest distance from CONUS 
+
+        Args:
+            :resolution (str): coarse resolution 
+    
+        """
+        
+        resolution = resolution or self._res_coarse
+        sInd_lat = (self._minlat-self._minlat_CONUS)/self._res_fine
+        sInd_lon = (self._minlon-self._minlon_CONUS)/self._res_fine
+        dist_CONUS = np.fromfile('%s/distance_syn_%sdeg_2011_JJA_CONUS.bin' % (self._path_RF, resolution)).reshape(-1, self._nlat_fine_CONUS, self._nlon_fine_CONUS)
+        dist = dist_CONUS[:, sInd_lat:sInd_lat+self._nlat_fine, sInd_lon:sInd_lon+self._nlon_fine]
+
+        return dist
 
     def prepare_regional_data(self):
         """
