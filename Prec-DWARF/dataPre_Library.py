@@ -241,6 +241,39 @@ class RandomForestsDownScaling(object):
         
         return dist_all
 
+    def read_prec_UpDown_CONUS(self, resolution=None):
+        """
+        This function is used to read the synthetic CONUS precipitation
+    
+        Args:
+            :resolution (str): coarse resolution 
+    
+        """
+
+        resolution = resolution or self._res_coarse
+        nlat_fine_CONUS = 224
+        nlon_fine_CONUS = 464
+        prec_UpDown_CONUS = np.fromfile('%s/apcpsfc_UpDown_%sdeg_2011_JJA_CONUS_bi-linear.bin' % \
+                (self._path_RF, resolution),'float32').reshape(-1, nlat_fine_CONUS, nlon_fine_CONUS)[:self._ntime]
+
+        return prec_UpDown_CONUS
+
+    def get_closest_distance_CONUS(self, resolution=None):
+        """
+        Calculate the closest distance to the surrounding dry grid cells for the CONUS
+
+        Args:
+            :resolution (str): coarse resolution 
+    
+        """
+
+        resolution = resolution or self._res_coarse
+        prec_UpDown_CONUS = self.read_prec_UpDown_CONUS(resolution)
+        dist_CONUS = np.array([self.get_closest_distance(prec_UpDown_CONUS[i]) for i in xrange(self._ntime)]) 
+        dist_CONUS.tofile('%s/distance_syn_%sdeg_2011_JJA_CONUS.bin' % (self._path_RF, resolution))
+
+        return dist_CONUS
+
     def prepare_regional_data(self):
         """
         Subset regional data and save to the local disk
