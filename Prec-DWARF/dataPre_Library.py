@@ -220,7 +220,7 @@ class RandomForestsDownScaling(object):
         # Prepare the coordinates
         lons, lats = self.get_lons_lats()
         lat_lon = np.hstack([lats[0].reshape(-1,1), lons[0].reshape(-1,1)])
-        
+
         # Find out the dry/wet/ocean grids
         loc_ocean = prec_2d == -9.99e+08
         loc_dry = prec_2d == 0
@@ -245,6 +245,44 @@ class RandomForestsDownScaling(object):
         
         return dist_all
 
+    def get_closest_distance_CONUS(self, resolution=None, threshold=0):
+        """
+        Calculate the closest distance to the surrounding dry grid cells for the CONUS
+
+        Args:
+            :resolution (str): coarse resolution 
+    
+        """
+
+        resolution = resolution or self._res_coarse
+        prec_UpDown_CONUS = self.read_prec_UpDown_CONUS(resolution)
+
+        # Precipitatin will be set to 0 if under threshold
+        if threshold ==0:
+            pass
+        else:
+            prec_UpDown_CONUS[(0<prec_UpDown_CONUS) & (prec_UpDown_CONUS<threshold)]=0
+
+        dist_CONUS = np.array([self.get_closest_distance(prec_UpDown_CONUS[i]) for i in xrange(self._ntime)]) 
+        dist_CONUS.tofile('%s/distance_syn_%sdeg_2011_JJA_CONUS_threshold.bin' % (self._path_RF, resolution))
+
+        return dist_CONUS
+
+    def read_prec_UpDown_region(self, resolution=None):
+        """
+        This function is used to read the synthetic regional precipitation
+    
+        Args:
+            :resolution (str): coarse resolution 
+    
+        """
+
+        resolution = resolution or self._res_coarse
+        prec_UpDown_region = np.fromfile('%s/prec_UpDown_%sdeg_2011_JJA_%s_bi-linear.bin' % \
+                (self._path_RF_subregion, resolution, self._region_name),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime]
+
+        return prec_UpDown_region
+
     def read_prec_UpDown_CONUS(self, resolution=None):
         """
         This function is used to read the synthetic CONUS precipitation
@@ -259,22 +297,6 @@ class RandomForestsDownScaling(object):
                 (self._path_RF, resolution),'float32').reshape(-1, self._nlat_fine_CONUS, self._nlon_fine_CONUS)[:self._ntime]
 
         return prec_UpDown_CONUS
-
-    def get_closest_distance_CONUS(self, resolution=None):
-        """
-        Calculate the closest distance to the surrounding dry grid cells for the CONUS
-
-        Args:
-            :resolution (str): coarse resolution 
-    
-        """
-
-        resolution = resolution or self._res_coarse
-        prec_UpDown_CONUS = self.read_prec_UpDown_CONUS(resolution)
-        dist_CONUS = np.array([self.get_closest_distance(prec_UpDown_CONUS[i]) for i in xrange(self._ntime)]) 
-        dist_CONUS.tofile('%s/distance_syn_%sdeg_2011_JJA_CONUS.bin' % (self._path_RF, resolution))
-
-        return dist_CONUS
 
     def subset_closest_distance_CONUS(self, resolution=None):
         """
@@ -328,7 +350,7 @@ class RandomForestsDownScaling(object):
                 for dynamic_feature in self._features_dynamic} 
         self.features_dic.update(features_dic_dynamic)
 
-        # Add adjacent precipitation grid cells as covariates
+        # Log transformation
         if self._prec_scale == 'log':
             self.features_dic['prec'][self.features_dic['prec']>0] = np.log10(self.features_dic['prec'][self.features_dic['prec']>0]) 
 
@@ -347,12 +369,13 @@ class RandomForestsDownScaling(object):
         self.features_dic['lats'] = self.get_lons_lats()[1]
 
         # Add the closest distance to dry grid cells as covariates
-        self.features_dic['distance'] = np.array([self.get_closest_distance(prec_UpDown[i]) for i in xrange(self._ntime)]) 
+        # self.features_dic['distance'] = np.array([self.get_closest_distance(prec_UpDown[i]) for i in xrange(self._ntime)]) 
+        self.features_dic['distance'] = self.subset_closest_distance_CONUS(self._res_coarse)
 
         # return self.features_dic
         return 
 
-    def prepare_prec_fine(self):
+    def prepare_prec_fine(self, prec_scale=None):
         """
         Prepare precipitation observations at fine resolution
     
@@ -360,9 +383,11 @@ class RandomForestsDownScaling(object):
         prec_fine = np.fromfile('%s/prec_2011_JJA_%s.bin' 
                                      % (self._path_RF_subregion, self._region_name), 'float32'). \
                                      reshape(-1, self._nlat_fine, self._nlon_fine)[:self._ntime]
-        if self._prec_scale == 'linear':
+
+        prec_scale = prec_scale or self._prec_scale
+        if prec_scale == 'linear':
             return prec_fine
-        if self._prec_scale == 'log':
+        if prec_scale == 'log':
             prec_fine[prec_fine>0] = np.log10(prec_fine[prec_fine>0])
             return prec_fine
 
@@ -540,7 +565,7 @@ class RandomForestsDownScaling(object):
 
         return score_RMSE, score_R2
 
-    def score_QQ(self, resolution=None):
+    def score_QQ(self, resolution=None, prec_scale=None):
         """
         Use this function to output the sample quantiles for observed and downscaled precipitation
     
@@ -551,12 +576,13 @@ class RandomForestsDownScaling(object):
 
         import statsmodels.api as sm
         resolution = resolution or self._res_coarse
+        prec_scale = prec_scale or self._prec_scale
 
-        prec_observed = self.prepare_prec_fine()
+        prec_observed = self.prepare_prec_fine(prec_scale)
         prec_downscaled = self.read_prec_downscaled(resolution)
 
-        prec_observed_valid = prec_observed[prec_downscaled > -9.99e+08]
-        prec_downscaled_valid = prec_downscaled[prec_downscaled > -9.99e+08]
+        prec_observed_valid = prec_observed[(prec_downscaled > -9.99e+08) & (prec_observed > -9.99e+08)]
+        prec_downscaled_valid = prec_downscaled[(prec_downscaled > -9.99e+08) & (prec_observed > -9.99e+08)]
 
         pp_observed = sm.ProbPlot(prec_observed_valid, fit=True)
         pp_downscaled = sm.ProbPlot(prec_downscaled_valid, fit=True)
@@ -785,8 +811,8 @@ class RandomForestsDownScaling(object):
         fig = plt.figure(figsize=(6, 6))
 
         for i, iRes in enumerate(resolution):
-            qq_obs1 = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
-            qq_pred1 = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
+            qq_obs1 = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS_with_dist_log_v2.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
+            qq_pred1 = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS_with_dist_log_v2.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
             plt.scatter(qq_pred1, qq_obs1, color=colors[i], alpha=1, label='%s deg' % (iRes))
 
         plt.rc('font', family='Arial')
