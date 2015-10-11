@@ -71,6 +71,7 @@ class RandomForestsDownScaling(object):
         self._features_dynamic = features_name['dynamic']
 
         self.reg = RandomForestRegressor(n_estimators=self._ntree, bootstrap=True, oob_score=True, n_jobs=self._njob)
+        self.reg_ext = RandomForestRegressor(n_estimators=self._ntree, bootstrap=True, oob_score=True, n_jobs=self._njob)
 
     def subset_prec(self):
         """
@@ -420,7 +421,7 @@ class RandomForestsDownScaling(object):
     
         """
 
-        prec_fine = self.prepare_prec_fine()
+        prec_fine = self.prepare_prec_fine(self._prec_scale)
         self.prepare_covariates()
 
         features_name_train = self.features_dic.keys()
@@ -435,8 +436,10 @@ class RandomForestsDownScaling(object):
 
         for i in xrange(self._ntime):
             ### Random choose grids
-            rand_row_ind = np.random.choice(self._nlat_fine, self._rand_row_num, replace=False)
-            rand_col_ind = np.random.choice(self._nlon_fine, self._rand_col_num, replace=False)
+            # rand_row_ind = np.random.choice(self._nlat_fine, self._rand_row_num, replace=False)
+            # rand_col_ind = np.random.choice(self._nlon_fine, self._rand_col_num, replace=False)
+            rand_row_ind = np.random.choice(self._nlat_fine, self._rand_row_num, replace=True)
+            rand_col_ind = np.random.choice(self._nlon_fine, self._rand_col_num, replace=True)
 
             ### Random sample fine precipitation
             self.prec_fine_train.append(prec_fine[i][np.ix_(rand_row_ind, rand_col_ind)])
@@ -469,21 +472,97 @@ class RandomForestsDownScaling(object):
 
         ### Mask out ocean grid cells
         self.features_train_land_df, self.prec_fine_train_land_df = self.mask_out_ocean(features_train_df, prec_fine_train_df)
-        self.features_land_df = self.mask_out_ocean(features_df, prec_fine_df)[0]
+        # self.features_land_df = self.mask_out_ocean(features_df, prec_fine_df)[0]
+        self.features_land_df, self.prec_fine_land_df = self.mask_out_ocean(features_df, prec_fine_df)
         self.features_land_df = self.features_land_df.sort_index(axis=1)
 
         # return self.features_train_land_df, self.prec_fine_train_land_df, self.features_land_df, self.prec_fine_land_df 
+        return 
+
+    def prepare_training_data_extreme(self, threshold_ext, ratio=0.5):
+        """
+        Prepare seperate training datasets only for precipitation values greater than threshold_ext
+    
+        """
+
+        prec_fine = self.prepare_prec_fine(self._prec_scale)
+        self.prepare_covariates()
+
+        features_name_train = self.features_dic.keys()
+        features_name_train.remove('prec')
+        features_train_dic_ext = {feature_train: [] for feature_train in features_name_train} 
+        features_train_dic_ext['prec_disagg_c'] = [] 
+        self.prec_fine_ext_train = [] 
+        
+        dynamic_feature_update = [name for name in self._features_dynamic if name != 'prec']
+        dynamic_feature_update.extend(['DOY', 'lons', 'lats', 'distance'])            
+        self.prec_feature = ['prec_disagg_c', 'prec_disagg_l', 'prec_disagg_r', 'prec_disagg_u', 'prec_disagg_d']
+
+        for i in xrange(self._ntime):
+            ### Choose grids where precipitation is greater than the threshold
+            prec_ind_ext = np.where(prec_fine[i] > threshold_ext)
+            prec_ext = prec_fine[i][prec_ind_ext]
+
+            ### Random sample extreme precipitation for training
+            num_ext = len(prec_ext)
+            print num_ext
+            ind_ext_tr = np.random.choice(range(50), round(20), replace=False)
+            #ind_ext_tr = np.random.choice(range(num_ext), round(ratio*num_ext), replace=False)
+            self.prec_fine_ext_train.append(prec_ext[ind_ext_tr])
+
+            ### Random sample extreme precipitation (coarse resolution) with its adjacent grids
+            for prec_ind, prec_name in enumerate(self.prec_feature):
+                grid_loc = self.get_adjacent_grids(self.prec_UpDown_extend[i], prec_ind_ext[0], prec_ind_ext[1])[prec_ind]
+                features_train_dic_ext[prec_name].append(grid_loc)
+        
+        '''
+            ### Random sample other variables 
+            for static_feature in self._features_static:
+                features_train_dic[static_feature].append(self.features_dic[static_feature][np.ix_(rand_row_ind, rand_col_ind)])
+            
+            for dynamic_feature in dynamic_feature_update:
+                features_train_dic[dynamic_feature].append(self.features_dic[dynamic_feature][i][np.ix_(rand_row_ind, rand_col_ind)])
+
+        ### Create dataframe for features
+        self.features_name_all = features_train_dic.keys()
+        features_train_df = DataFrame({feature_all: np.array(features_train_dic[feature_all]).reshape(-1) for feature_all in self.features_name_all}) 
+        features_df = DataFrame({static_feature: np.array([self.features_dic[static_feature].tolist()]*self._ntime).reshape(-1) for static_feature in self._features_static}) 
+        for dynamic_feature in dynamic_feature_update + self.prec_feature:
+            if dynamic_feature == 'prec_disagg_c':
+                features_df[dynamic_feature] = self.features_dic['prec'].reshape(-1)
+            else:
+                features_df[dynamic_feature] = self.features_dic[dynamic_feature].reshape(-1)
+
+        ### Create dataframe for precipitation
+        prec_fine_train_df = DataFrame({'prec_fine': np.array(self.prec_fine_train).reshape(-1)})
+        prec_fine_df = DataFrame({'prec_fine': prec_fine.reshape(-1)})
+
+        ### Mask out ocean grid cells
+        self.features_train_land_df, self.prec_fine_train_land_df = self.mask_out_ocean(features_train_df, prec_fine_train_df)
+        self.features_land_df = self.mask_out_ocean(features_df, prec_fine_df)[0]
+        self.features_land_df = self.features_land_df.sort_index(axis=1)
+        '''
 
         return 
 
-    def fit_RF(self):
+    def fit_RF(self, seperateRF=False):
         """
         Fit random forests using the training data
+
+        Args:
+            :seperate (bool): False: fit one RF; True: fit seperated RF accounting for extreme values
     
         """
 
         self.prepare_training_data()
         self.reg.fit(self.features_train_land_df, np.ravel(self.prec_fine_train_land_df))
+
+        ### Fit for extreme precipitation
+        if seperateRF == True:
+            prec_ext_ind = self.prec_fine_land_df['prec_fine'] > 3.5
+            self.prec_ext_ind = self.prec_fine_land_df[prec_ext_ind].index
+            self.prec_ext_ind_tr = np.random.choice(self.prec_ext_ind, round(0.5*len(self.prec_ext_ind)), replace=False)
+            self.reg_ext.fit(self.features_land_df.loc[self.prec_ext_ind_tr], np.ravel(self.prec_fine_land_df.loc[self.prec_ext_ind_tr]))
 
         del self.features_train_land_df
         del self.prec_fine_train_land_df
@@ -491,7 +570,7 @@ class RandomForestsDownScaling(object):
 
         return
 
-    def predict_RF_mean(self):
+    def predict_RF_mean(self, seperateRF=False):
         """
         Use random forests to train and downscale coarse resolution precipitation
     
@@ -501,10 +580,16 @@ class RandomForestsDownScaling(object):
         prec_pre_all = self.reg.predict(self.features_land_df)
         prec_pred_df['prec_fine'][self.features_land_df.index] = prec_pre_all.astype('float32')
 
+        ### Predict for extreme precipitation
+        if seperateRF == True:
+            prec_pre_ext = self.reg_ext.predict(self.features_land_df.loc[self.prec_ext_ind])
+            prec_pred_df.loc[self.prec_ext_ind] = prec_pre_ext.astype('float32').reshape(-1, 1)
+
         if self._prec_scale == 'log':
             ind = prec_pred_df['prec_fine'] != 0
             prec_pred_df['prec_fine'][ind] = np.power(10, prec_pred_df['prec_fine'][ind])
-        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist_log.bin' 
+ 
+        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist_temp.bin' 
                                                       % (self._path_RF_subregion, self._region_name, self._res_coarse, self._res_coarse))
         return prec_pred_df
 
@@ -540,7 +625,7 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = resolution or self._res_coarse
-        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist_log.bin' % 
+        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist_temp.bin' % 
                           (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine)
 
         return prec_downscaled
@@ -589,13 +674,14 @@ class RandomForestsDownScaling(object):
 
         plt.figure()
         plt.scatter(pp_downscaled.sample_quantiles, pp_observed.sample_quantiles)
+        # fig = pp_observed.qqplot(line='45', other=pp_downscaled)
         plt.xlabel('Downscaled')
         plt.ylabel('Obs')
         plt.title('%s deg' % (resolution))
         plt.show()
 
-        pp_observed.sample_quantiles.tofile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s_with_dist_log.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
-        pp_downscaled.sample_quantiles.tofile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_with_dist_log.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+        pp_observed.sample_quantiles.tofile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s_with_dist_temp.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+        pp_downscaled.sample_quantiles.tofile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_with_dist_temp.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
 
         return 
 
@@ -811,8 +897,8 @@ class RandomForestsDownScaling(object):
         fig = plt.figure(figsize=(6, 6))
 
         for i, iRes in enumerate(resolution):
-            qq_obs1 = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS_with_dist_log_v2.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
-            qq_pred1 = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS_with_dist_log_v2.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
+            qq_obs1 = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS_with_dist_temp.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
+            qq_pred1 = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS_with_dist_temp.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
             plt.scatter(qq_pred1, qq_obs1, color=colors[i], alpha=1, label='%s deg' % (iRes))
 
         plt.rc('font', family='Arial')
