@@ -495,7 +495,7 @@ class RandomForestsDownScaling(object):
         if seperateRF == True:
             prec_ext_ind = self.prec_fine_land_df['prec_fine'] > 3.5
             self.prec_ext_ind = self.prec_fine_land_df[prec_ext_ind].index
-            self.prec_ext_ind_tr = np.random.choice(self.prec_ext_ind, round(0.5*len(self.prec_ext_ind)), replace=False)
+            self.prec_ext_ind_tr = np.random.choice(self.prec_ext_ind, round(0.3*len(self.prec_ext_ind)), replace=False)
             self.reg_ext.fit(self.features_land_df.loc[self.prec_ext_ind_tr], np.ravel(self.prec_fine_land_df.loc[self.prec_ext_ind_tr]))
 
         del self.features_train_land_df
@@ -603,8 +603,8 @@ class RandomForestsDownScaling(object):
         prec_observed_valid = prec_observed[(prec_downscaled > -9.99e+08) & (prec_observed > -9.99e+08)]
         prec_downscaled_valid = prec_downscaled[(prec_downscaled > -9.99e+08) & (prec_observed > -9.99e+08)]
 
-        pp_observed = sm.ProbPlot(prec_observed_valid, fit=True)
-        pp_downscaled = sm.ProbPlot(prec_downscaled_valid, fit=True)
+        pp_observed = sm.ProbPlot(prec_observed_valid)
+        pp_downscaled = sm.ProbPlot(prec_downscaled_valid)
 
         plt.figure()
         plt.scatter(pp_downscaled.sample_quantiles, pp_observed.sample_quantiles)
