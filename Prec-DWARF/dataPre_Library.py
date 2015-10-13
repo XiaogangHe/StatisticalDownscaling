@@ -493,7 +493,10 @@ class RandomForestsDownScaling(object):
 
         ### Fit for extreme precipitation
         if seperateRF == True:
-            prec_ext_ind = self.prec_fine_land_df['prec_fine'] > 3.5
+            ### Set the threshold to be the 99.9% percentile
+            threshold_ext = np.percentile(self.prec_fine_land_df['prec_fine'], 99.95)
+            ### Subset the extreme values
+            prec_ext_ind = self.prec_fine_land_df['prec_fine'] > threshold_ext
             self.prec_ext_ind = self.prec_fine_land_df[prec_ext_ind].index
             self.prec_ext_ind_tr = np.random.choice(self.prec_ext_ind, round(0.3*len(self.prec_ext_ind)), replace=False)
             self.reg_ext.fit(self.features_land_df.loc[self.prec_ext_ind_tr], np.ravel(self.prec_fine_land_df.loc[self.prec_ext_ind_tr]))
@@ -523,7 +526,7 @@ class RandomForestsDownScaling(object):
             ind = prec_pred_df['prec_fine'] != 0
             prec_pred_df['prec_fine'][ind] = np.power(10, prec_pred_df['prec_fine'][ind])
  
-        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist_temp.bin' 
+        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' 
                                                       % (self._path_RF_subregion, self._region_name, self._res_coarse, self._res_coarse))
         return prec_pred_df
 
@@ -559,7 +562,7 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = resolution or self._res_coarse
-        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_bi-linear_with_dist_temp.bin' % 
+        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
                           (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine)
 
         return prec_downscaled
@@ -614,8 +617,8 @@ class RandomForestsDownScaling(object):
         plt.title('%s deg' % (resolution))
         plt.show()
 
-        pp_observed.sample_quantiles.tofile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s_with_dist_temp.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
-        pp_downscaled.sample_quantiles.tofile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_with_dist_temp.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+        pp_observed.sample_quantiles.tofile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s_1RF.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+        pp_downscaled.sample_quantiles.tofile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_1RF.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
 
         return 
 
@@ -831,14 +834,14 @@ class RandomForestsDownScaling(object):
         fig = plt.figure(figsize=(6, 6))
 
         for i, iRes in enumerate(resolution):
-            qq_obs1 = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS_with_dist_temp.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
-            qq_pred1 = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS_with_dist_temp.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
-            plt.scatter(qq_pred1, qq_obs1, color=colors[i], alpha=1, label='%s deg' % (iRes))
+            qq_obs = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS_1RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
+            qq_pred = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS_1RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
+            plt.scatter(qq_pred, qq_obs, color=colors[i], alpha=1, label='%s deg' % (iRes))
 
         plt.rc('font', family='Arial')
         #plt.xlim([-10, 50])
         #plt.ylim([-10, 50])
-        plt.plot([-10, 200], [-10, 200], 'k--', linewidth=1.5)
+        plt.plot([-10, 1.1*qq_obs.max()], [-10, 1.1*qq_obs.max()], 'k--', linewidth=1.5)
         leg = plt.legend(loc=2, prop={'size':15})
         leg.get_frame().set_linewidth(0.0)
         #plt.xlabel('Downscaled', size=20)
