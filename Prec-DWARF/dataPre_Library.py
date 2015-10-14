@@ -567,6 +567,48 @@ class RandomForestsDownScaling(object):
 
         return prec_downscaled
 
+    def compute_variogram(self, data, itime, psill=0, vrange=40, nugget=0):
+        """
+        Compute the semi-variogram using R's 'gstat' package
+
+        Input:  data: 3-d array (time, lat, lon)
+                itime (int): ith time step
+        """
+
+        ##### Load R packages
+        r('library("gstat")')
+        r('library("sp")')
+
+        lon = r("lon <- expand.grid(1:%d, 1:%d)[,1]" % (self._nlon_fine, self._nlat_fine))
+        lat = r("lat <- expand.grid(1:%d, 1:%d)[,2]" % (self._nlon_fine, self._nlat_fine))
+        lon = np.array(lon)
+        lat = np.array(lat)
+        
+        data = data[itime].reshape(-1)
+        ind = data != -9.99e+08
+        data = data[ind]
+        lon = lon[ind]
+        lat = lat[ind]
+
+        ##### Convert numpy to R format
+        r.assign("data", data)
+        r.assign("lon", lon)
+        r.assign("lat", lat)
+
+        ##### Fit variogram
+        r("d = data.frame(lon=lon, lat=lat, prec=data)")
+        r("coordinates(d)<-~lon+lat")
+        r('vg <- variogram(prec~1, d)')
+        r("vg.fit <- fit.variogram(vg, vgm(%s, 'Exp', %s, %s))" % (psill, vrange, nugget))
+
+        dist = np.array(r("vg$dist"))
+        gamma = np.array(r("vg$gamma"))
+        dist_fit = np.array((r('variogramLine(vg.fit, %s)$dist' % (vrange))))
+        gamma_fit = np.array((r('variogramLine(vg.fit, %s)$gamma' % (vrange))))
+
+        return dist, gamma, dist_fit, gamma_fit
+        return {'dist':dist, 'gamma':gamma, 'dist_fit':dist_fit, 'gamma_fit':gamma_fit}
+
     def score_RMSE_R2(self, resolution=None):
         """
         This function is used to calculate the RMSE value
@@ -686,6 +728,21 @@ class RandomForestsDownScaling(object):
 
         return
 
+    def score_minSemivariance(self, pre, resolution=None):
+        """
+        Use this function to output the first point of semivariogram 
+
+        Args:
+            :pre (array): 3d precipitation
+    
+        """
+
+        resolution = resolution or self._res_coarse
+        gamma = np.array([self.compute_variogram(pre, i)[1][0] for i in range(self._ntime)])
+        np.savez('%s/minSemivariance_downscaled_%s_%sdeg_P_%sdeg_1RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), gamma=gamma) 
+
+        return
+
     def cmap_customized(self):
         """
         Defined customized color table
@@ -753,6 +810,41 @@ class RandomForestsDownScaling(object):
         M.colorbar()
         plt.title('%s' %(title))
         # plt.savefig('../../Figures/Animation/%s_SEUS_adjacent_0.5deg_bi-linear_%s.png' % (title, i), format='PNG')
+        plt.show()
+
+    def plot_R2(self):
+        """
+        Plot ROC (Receiver Operating Characteristic) plot 
+    
+        """
+
+        resolution = [0.25, 0.5, 1]
+        colors = ['#f03b20', '#feb24c', '#c51b8a']        # For upscaled atmospheric covariates
+        # colors = ['#31a354', '#addd8e', '#67a9cf']      # For 0.125 deg atmospheric covariates
+
+        # R2_set    = np.array([0.90, 0.75, 0.54, 0.89, 0.73, 0.53])
+        R2_set    = np.array([0.80, 0.67, 0.50])
+
+        fig = plt.figure(figsize=(3.5,6))
+        ax_size = [0.1,0.1,0.8,0.8]
+        ax = fig.add_axes(ax_size)
+        ax.spines['top'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.xaxis.tick_bottom()
+        ax.yaxis.tick_right()
+        ax.plot(R2_set[:3], '-p', color='#31a354', linewidth=5, markersize=12, alpha=0.9)
+        # ax.plot(R2_set[3:], '-p', color='#e34a33', linewidth=5, markersize=12, alpha=0.9)
+        ax.set_ylim([0.8*R2_set.min(), 1.1*R2_set.max()])
+        ax.set_xlim([-0.5, 2.5])
+        #plt.ylim([0.4, 1.05])
+        #plt.legend(loc=4, prop={'size':15})
+        ax.set_xticklabels([])
+        ax.set_xticks([0,1,2],[1,2,3])
+        ax.set_yticks([0.5, 0.6, 0.7, 0.8, 0.9], [0.5, 0.6, 0.7, 0.8, 0.9])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_yticklabels([])
+        # plt.savefig('./R2.tiff')
         plt.show()
 
     def plot_treeEns(self, xxx, stime=0, etime=None):
@@ -839,8 +931,6 @@ class RandomForestsDownScaling(object):
             plt.scatter(qq_pred, qq_obs, color=colors[i], alpha=1, label='%s deg' % (iRes))
 
         plt.rc('font', family='Arial')
-        #plt.xlim([-10, 50])
-        #plt.ylim([-10, 50])
         plt.plot([-10, 1.1*qq_obs.max()], [-10, 1.1*qq_obs.max()], 'k--', linewidth=1.5)
         leg = plt.legend(loc=2, prop={'size':15})
         leg.get_frame().set_linewidth(0.0)
@@ -875,6 +965,37 @@ class RandomForestsDownScaling(object):
         plt.xlabel('False Positive Ratio', size=20)
         plt.ylabel('True Positive Ratio', size=20)
         plt.title('ROC Curve', size=25)
+        #plt.savefig('./ROC_curve_2.png')
+        plt.show()
+
+        return
+
+    def plot_semivariance(self):
+        """
+        Plot the minimum semivariance from the semi-variogram 
+    
+        """
+
+        resolution = [0.25, 0.5, 1]
+        colors1 = ['#f03b20', '#feb24c', '#c51b8a']        # For single RF
+        colors2 = ['#31a354', '#addd8e', '#67a9cf']        # For seperated RF
+        fig = plt.figure(figsize=(6, 6))
+
+        gamma_obs = np.load('%s/minSemivariance_obs_NWUS.npz' % (self._path_RF_subregion))
+        for i, iRes in enumerate(resolution):
+            gamma_1RF = np.load('%s/minSemivariance_downscaled_NWUS_%sdeg_P_%sdeg_1RF.npz' % (self._path_RF_subregion, iRes, iRes))
+            gamma_2RF = np.load('%s/minSemivariance_downscaled_NWUS_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, iRes, iRes))
+            plt.scatter(gamma_obs['gamma'], gamma_1RF['gamma'], marker='^', color=colors1[i], label='1RF_%sdeg' % (iRes), s=25)
+            plt.scatter(gamma_obs['gamma'], gamma_2RF['gamma'], marker='p', color=colors2[i], label='2RF_%sdeg' % (iRes), s=25)
+
+        plt.plot([0,1],[0,1], '--k', linewidth=1.5)
+        plt.rc('font', family='Arial')
+        plt.xlim([0.05, 1])
+        plt.ylim([0.05, 1])
+        plt.legend(loc=1, prop={'size':15})
+        plt.xlabel('Observed semivariance (lag 1)', size=18)
+        plt.ylabel('Downscaled semivariance (lag 1)', size=18)
+        #plt.title('ROC Curve', size=25)
         #plt.savefig('./ROC_curve_2.png')
         plt.show()
 
@@ -921,47 +1042,6 @@ class RandomForestsDownScaling(object):
         plt.plot(fit['real']['predicted']['x'], fit['boot']['boot.summary']['predicted']['y'].loc[['0']].values.squeeze())  # Lower boundary
         plt.plot(fit['real']['predicted']['x'], fit['boot']['boot.summary']['predicted']['y'].loc[['1']].values.squeeze())  # Upper boundary
         plt.show()
-
-    def compute_variogram(nlon, nlat, data, psill=0, vrange=40, nugget=0):
-        """
-        Compute the semi-variogram using R's 'gstat' package
-
-        Input:  nlon: lon number
-                nlat: lat number
-                data: 1-d array
-        """
-
-        ##### Load R packages
-        r('library("gstat")')
-        r('library("sp")')
-
-        lon = r("lon <- expand.grid(1:%d, 1:%d)[,1]" % (nlon, nlat))
-        lat = r("lat <- expand.grid(1:%d, 1:%d)[,2]" % (nlon, nlat))
-        lon = np.array(lon)
-        lat = np.array(lat)
-
-        ind = data != -9.99e+08
-        data = data[ind]
-        lon = lon[ind]
-        lat = lat[ind]
-
-        ##### Convert numpy to R format
-        r.assign("data", data)
-        r.assign("lon", lon)
-        r.assign("lat", lat)
-
-        ##### Fit variogram
-        r("d = data.frame(lon=lon, lat=lat, prec=data)")
-        r("coordinates(d)<-~lon+lat")
-        r('vg <- variogram(prec~1, d)')
-        r("vg.fit <- fit.variogram(vg, vgm(%s, 'Exp', %s, %s))" % (psill, vrange, nugget))
-
-        dist = np.array(r("vg$dist"))
-        gamma = np.array(r("vg$gamma"))
-        dist_fit = np.array((r('variogramLine(vg.fit, %s)$dist' % (vrange))))
-        gamma_fit = np.array((r('variogramLine(vg.fit, %s)$gamma' % (vrange))))
-
-        return dist, gamma, dist_fit, gamma_fit
 
     def compute_frac_area_intensity(data_fine, ngrid, nlat_coarse, nlon_coarse):
         """
