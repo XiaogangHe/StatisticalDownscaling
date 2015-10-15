@@ -63,6 +63,7 @@ class RandomForestsDownScaling(object):
         self._path_RF_subregion = data_info['path_RF'] + '/' + region_info['name']
         self._path_NLDAS2 = data_info['path_NLDAS2']
         self._ctl_file = data_info['ctl_file']
+        self._seperateRF = RF_config['seperateRF']
         self._rand_row_num = RF_config['rand_row_num']
         self._rand_col_num = RF_config['rand_col_num']
         self._ntree = RF_config['ntree']
@@ -479,7 +480,7 @@ class RandomForestsDownScaling(object):
         # return self.features_train_land_df, self.prec_fine_train_land_df, self.features_land_df, self.prec_fine_land_df 
         return 
 
-    def fit_RF(self, seperateRF=False):
+    def fit_RF(self):
         """
         Fit random forests using the training data
 
@@ -492,7 +493,7 @@ class RandomForestsDownScaling(object):
         self.reg.fit(self.features_train_land_df, np.ravel(self.prec_fine_train_land_df))
 
         ### Fit for extreme precipitation
-        if seperateRF == True:
+        if self._seperateRF == True:
             ### Set the threshold to be the 99.9% percentile
             threshold_ext = np.percentile(self.prec_fine_land_df['prec_fine'], 99.95)
             ### Subset the extreme values
@@ -507,7 +508,7 @@ class RandomForestsDownScaling(object):
 
         return
 
-    def predict_RF_mean(self, seperateRF=False):
+    def predict_RF_mean(self):
         """
         Use random forests to train and downscale coarse resolution precipitation
     
@@ -518,7 +519,7 @@ class RandomForestsDownScaling(object):
         prec_pred_df['prec_fine'][self.features_land_df.index] = prec_pre_all.astype('float32')
 
         ### Predict for extreme precipitation
-        if seperateRF == True:
+        if self._seperateRF == True:
             prec_pre_ext = self.reg_ext.predict(self.features_land_df.loc[self.prec_ext_ind])
             prec_pred_df.loc[self.prec_ext_ind] = prec_pre_ext.astype('float32').reshape(-1, 1)
 
@@ -526,7 +527,7 @@ class RandomForestsDownScaling(object):
             ind = prec_pred_df['prec_fine'] != 0
             prec_pred_df['prec_fine'][ind] = np.power(10, prec_pred_df['prec_fine'][ind])
  
-        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' 
+        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' 
                                                       % (self._path_RF_subregion, self._region_name, self._res_coarse, self._res_coarse))
         return prec_pred_df
 
@@ -562,7 +563,7 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = resolution or self._res_coarse
-        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
+        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
                           (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine)
 
         return prec_downscaled
@@ -659,8 +660,8 @@ class RandomForestsDownScaling(object):
         plt.title('%s deg' % (resolution))
         plt.show()
 
-        pp_observed.sample_quantiles.tofile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s_1RF.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
-        pp_downscaled.sample_quantiles.tofile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_1RF.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+        pp_observed.sample_quantiles.tofile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s_2RF.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+        pp_downscaled.sample_quantiles.tofile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_2RF.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
 
         return 
 
@@ -695,7 +696,7 @@ class RandomForestsDownScaling(object):
         plt.legend(loc='best')
         plt.show()
 
-        np.savez('%s/ROC_statistics_LargeMeteo_%sdeg_P_%sdeg_%s.npz' % (self._path_RF_subregion, resolution, resolution, self._region_name), 
+        np.savez('%s/ROC_statistics_%sdeg_P_%sdeg_%s_2RF.npz' % (self._path_RF_subregion, resolution, resolution, self._region_name), 
                  fpr=fpr, tpr=tpr, auc=roc_auc, thresholds=thresholds)
 
         return
@@ -709,14 +710,23 @@ class RandomForestsDownScaling(object):
         self.fit_RF()
         importances = self.reg.feature_importances_
         indices = np.argsort(importances)    
-        np.savez('%s/feature_importance_LargeMeteo_%sdeg_P_%sdeg_%s.npz' % (self._path_RF_subregion, self._res_coarse ,self._res_coarse, self._region_name), importance=importances, rank=indices)
-
+        np.savez('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF.npz' % (self._path_RF_subregion, self._res_coarse ,self._res_coarse, self._region_name), importance=importances, rank=indices)
         feature_num = importances.shape[0]
         indices = indices[::-1]
         covariate_name = list(self.features_land_df.columns.values)
         std = np.std([tree.feature_importances_ for tree in self.reg.estimators_], axis=0)
         covariate_name_sort = [covariate_name[indices[i]] for i in range(feature_num)]
         print covariate_name_sort
+
+        ### Save feature importance for the 2nd RF
+        if self._seperateRF == True:
+            importances_ext = self.reg_ext.feature_importances_
+            indices_ext = np.argsort(importances_ext)    
+            np.savez('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF_ext.npz' % (self._path_RF_subregion, self._res_coarse ,self._res_coarse, self._region_name), importance=importances_ext, rank=indices_ext)
+            indices_ext = indices_ext[::-1]
+            covariate_name_sort_ext = [covariate_name[indices_ext[i]] for i in range(feature_num)]
+            print covariate_name_sort_ext
+
     
         fig = plt.figure(figsize=(8,6))
         ax = fig.add_axes([0.1, 0.2, 0.8, 0.7])
@@ -739,7 +749,7 @@ class RandomForestsDownScaling(object):
 
         resolution = resolution or self._res_coarse
         gamma = np.array([self.compute_variogram(pre, i)[1][0] for i in range(self._ntime)])
-        np.savez('%s/minSemivariance_downscaled_%s_%sdeg_P_%sdeg_1RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), gamma=gamma) 
+        np.savez('%s/minSemivariance_downscaled_%s_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), gamma=gamma) 
 
         return
 
@@ -877,39 +887,63 @@ class RandomForestsDownScaling(object):
         plt.title('Domain Averaged Prep')
         plt.show()
 
+    def plot_settings_imp(self):
+        """
+        Plot settings for feature importance
+    
+        """
+
+        imp_ref = np.load('%s/feature_importance_0.25deg_P_0.25deg_%s_1RF.npz' % (self._path_RF_subregion, self._region_name))
+        self.sorted_idx = imp_ref['rank']
+        print self.sorted_idx
+        self.width = [1.4, 1, 0.6]
+        plt.rc('font', **{'family':'Arial', 'size':15})
+        self.fig = plt.figure(figsize=(6,8))
+        self.ax_size = [0.1, 0.1, 0.8, 0.8]
+        self.ax = self.fig.add_axes(self.ax_size)
+        self.ax.spines['bottom'].set_visible(False)
+        self.ax.spines['right'].set_visible(False)
+        self.ax.xaxis.tick_top()
+        self.ax.yaxis.set_ticks_position('none')
+        self.ax.xaxis.set_label_position('top')
+        self.ax.set_yticklabels([])
+        self.pos = np.arange(self.sorted_idx.shape[0]) + 0.5
+        self.pos = self.pos*2
+
+        return
+
     def plot_feature_importance(self):
         """
         Plot feature importance
     
         """
 
-        imp_ref = np.load('%s/feature_importance_LargeMeteo_0.25deg_P_0.25deg_%s.npz' % (self._path_RF_subregion, self._region_name))
-        sorted_idx = imp_ref['rank']
-        print sorted_idx
-
         resolution = [0.25, 0.5, 1]
-        colors = ['#f03b20', '#feb24c', '#c51b8a']        # For upscaled atmospheric covariates
-        # colors = ['#31a354', '#addd8e', '#67a9cf']      # For 0.125 deg atmospheric covariates
-        width = [1.4, 1, 0.6]
-        plt.rc('font', **{'family':'Arial', 'size':15})
-        fig = plt.figure(figsize=(6,8))
-        ax_size = [0.1, 0.1, 0.8, 0.8]
-        ax = fig.add_axes(ax_size)
-        ax.spines['bottom'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.xaxis.tick_top()
-        ax.yaxis.set_ticks_position('none')
-        ax.xaxis.set_label_position('top')
-        ax.set_yticklabels([])
-        pos = np.arange(sorted_idx.shape[0]) + 0.5
-        pos = pos*2
-        plt.xlim([0, 0.8])
+        colors1 = ['#f03b20', '#feb24c', '#c51b8a']        # For single RF
+        colors2 = ['#31a354', '#addd8e', '#67a9cf']        # For seperated RF
 
+        self.plot_settings_imp()
         for i, iRes in enumerate(resolution):
-            feature_importance = np.load('%s/feature_importance_LargeMeteo_%sdeg_P_%sdeg_%s.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
+            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_1RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
             importance = feature_importance['importance']
-            ax.barh(pos, importance[sorted_idx], width[i], color=colors[i], align='center', linewidth=0, alpha=1)
+            self.ax.barh(self.pos, importance[self.sorted_idx], self.width[i], color=colors1[i], align='center', linewidth=0, alpha=1)
+        plt.xlim([0, 0.85])
+        plt.show()
 
+        self.plot_settings_imp()
+        for i, iRes in enumerate(resolution):
+            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
+            importance = feature_importance['importance']
+            self.ax.barh(self.pos, importance[self.sorted_idx], self.width[i], color=colors2[i], align='center', linewidth=0, alpha=1)
+        plt.xlim([0, 0.85])
+        plt.show()
+
+        self.plot_settings_imp()
+        for i, iRes in enumerate(resolution):
+            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF_ext.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
+            importance = feature_importance['importance']
+            self.ax.barh(self.pos, importance[self.sorted_idx], self.width[i], color=colors2[i], align='center', linewidth=0, alpha=1)
+        plt.xlim([0, 0.85])
         plt.show()
 
         return
@@ -926,8 +960,8 @@ class RandomForestsDownScaling(object):
         fig = plt.figure(figsize=(6, 6))
 
         for i, iRes in enumerate(resolution):
-            qq_obs = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS_1RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
-            qq_pred = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS_1RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
+            qq_obs = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS_2RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
+            qq_pred = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS_2RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
             plt.scatter(qq_pred, qq_obs, color=colors[i], alpha=1, label='%s deg' % (iRes))
 
         plt.rc('font', family='Arial')
@@ -953,7 +987,7 @@ class RandomForestsDownScaling(object):
         fig = plt.figure(figsize=(6, 6))
 
         for i, iRes in enumerate(resolution):
-            ROC_metrics_1 = np.load('%s/ROC_statistics_LargeMeteo_%sdeg_P_%sdeg_NWUS.npz' % (self._path_RF_subregion, iRes, iRes))
+            ROC_metrics_1 = np.load('%s/ROC_statistics_%sdeg_P_%sdeg_%s_2RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
             #ROC_metrics_2 = np.load('%s/ROC_statistics_LargeMeteo_0.125deg_P_%s.npz' % (data_path, iRes))
             plt.plot(ROC_metrics_1['fpr'], ROC_metrics_1['tpr'], colors[i], linewidth=2.5, label='%s deg (AUC = %0.2f)' % (iRes, ROC_metrics_1['auc']))
             #plt.plot(ROC_metrics_2['fpr'], ROC_metrics_2['tpr'], colors_2[i], linewidth=2.5, label='%s (AUC = %0.2f)' % (iRes, ROC_metrics_2['auc']))
