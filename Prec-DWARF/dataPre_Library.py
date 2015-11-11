@@ -822,39 +822,57 @@ class RandomForestsDownScaling(object):
         # plt.savefig('../../Figures/Animation/%s_SEUS_adjacent_0.5deg_bi-linear_%s.png' % (title, i), format='PNG')
         plt.show()
 
-    def plot_R2(self):
+    def plot_R2_RMSE(self):
         """
-        Plot ROC (Receiver Operating Characteristic) plot 
+        Plot R2 and RMSE in the same figure 
     
         """
 
         resolution = [0.25, 0.5, 1]
-        colors = ['#f03b20', '#feb24c', '#c51b8a']        # For upscaled atmospheric covariates
-        # colors = ['#31a354', '#addd8e', '#67a9cf']      # For 0.125 deg atmospheric covariates
+        colors_1RF = ['#f03b20', '#feb24c', '#c51b8a']
+        colors_2RF = ['#31a354', '#addd8e', '#67a9cf'] 
 
-        # R2_set    = np.array([0.90, 0.75, 0.54, 0.89, 0.73, 0.53])
-        R2_set    = np.array([0.80, 0.67, 0.50])
+        R2 = np.array([0.799, 0.668, 0.501, 0.858, 0.747, 0.549])      # NWUS
+        RMSE = np.array([0.117, 0.150, 0.184, 0.098, 0.131, 0.175])    # NWUS
 
-        fig = plt.figure(figsize=(3.5,6))
-        ax_size = [0.1,0.1,0.8,0.8]
-        ax = fig.add_axes(ax_size)
-        ax.spines['top'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-        ax.xaxis.tick_bottom()
-        ax.yaxis.tick_right()
-        ax.plot(R2_set[:3], '-p', color='#31a354', linewidth=5, markersize=12, alpha=0.9)
-        # ax.plot(R2_set[3:], '-p', color='#e34a33', linewidth=5, markersize=12, alpha=0.9)
-        ax.set_ylim([0.8*R2_set.min(), 1.1*R2_set.max()])
-        ax.set_xlim([-0.5, 2.5])
-        #plt.ylim([0.4, 1.05])
-        #plt.legend(loc=4, prop={'size':15})
-        ax.set_xticklabels([])
-        ax.set_xticks([0,1,2],[1,2,3])
-        ax.set_yticks([0.5, 0.6, 0.7, 0.8, 0.9], [0.5, 0.6, 0.7, 0.8, 0.9])
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_yticklabels([])
-        # plt.savefig('./R2.tiff')
+        fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(6, 6))
+
+        # Plot RMSE
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
+        ax1.xaxis.tick_bottom()
+        ax1.yaxis.tick_left()
+        ax1.plot(RMSE[:3], '-p', color='#e34a33', linewidth=5, markersize=12, alpha=0.9, label='1RF')
+        ax1.plot(RMSE[3:], '-p', color='#31a354', linewidth=5, markersize=12, alpha=0.9)
+        ax1.set_ylim([0.8*RMSE.min(), 1.1*RMSE.max()])
+        ax1.set_xlim([-0.5, 2.5])
+        leg = ax1.legend(loc=4, prop={'size':15})
+        leg.get_frame().set_linewidth(0.0)
+        ax1.set_xticks([0, 1, 2])
+        ax1.set_xticklabels(['0.25$^\circ$', '0.5$^\circ$', '1$^\circ$'], fontsize=15)
+        ax1.tick_params(axis='y', labelsize=15)
+        fig.text(0.15, 0.9, "RMSE", fontsize=20)
+
+        # Plot R2
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['left'].set_visible(False)
+        ax2.xaxis.tick_bottom()
+        ax2.yaxis.tick_right()
+        ax2.plot(R2[:3], '-p', color='#e34a33', linewidth=5, markersize=12, alpha=0.9)
+        ax2.plot(R2[3:], '-p', color='#31a354', linewidth=5, markersize=12, alpha=0.9, label='2RF')
+        ax2.set_ylim([0.8*R2.min(), 1.1*R2.max()])
+        ax2.set_xlim([-0.5, 2.5])
+        leg = ax2.legend(loc=3, prop={'size':15})
+        leg.get_frame().set_linewidth(0.0)
+        ax2.set_xticks([0, 1, 2])
+        ax2.set_xticklabels(['0.25$^\circ$', '0.5$^\circ$', '1$^\circ$'], fontsize=15)
+        #ax2.set_yticks([0.5, 0.6, 0.7, 0.8, 0.9])
+        #ax2.set_yticklabels([0.5, 0.6, 0.7, 0.8, 0.9], fontsize=15)
+        ax2.tick_params(axis='y', labelsize=15)
+        fig.text(0.82, 0.9, "R2", fontsize=20)
+
+        fig.tight_layout()
+        plt.savefig('../../Figures/RF/R2_RMSE_%s.pdf' % (self._region_name))
         plt.show()
 
     def plot_treeEns(self, xxx, stime=0, etime=None):
