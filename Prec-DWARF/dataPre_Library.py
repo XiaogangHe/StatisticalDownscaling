@@ -26,6 +26,10 @@ ga = grads.GrADS(Bin=grads_exe, Window=False, Echo=False)
 import sys
 import gc
 from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.patches as patches
+
+colors_1RF = ['#f03b20', '#feb24c', '#c51b8a']
+colors_2RF = ['#31a354', '#addd8e', '#67a9cf'] 
 
 class RandomForestsDownScaling(object):
     
@@ -829,8 +833,6 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = [0.25, 0.5, 1]
-        colors_1RF = ['#f03b20', '#feb24c', '#c51b8a']
-        colors_2RF = ['#31a354', '#addd8e', '#67a9cf'] 
 
         R2 = np.array([0.799, 0.668, 0.501, 0.858, 0.747, 0.549])      # NWUS
         RMSE = np.array([0.117, 0.150, 0.184, 0.098, 0.131, 0.175])    # NWUS
@@ -872,7 +874,8 @@ class RandomForestsDownScaling(object):
         fig.text(0.82, 0.9, "R2", fontsize=20)
 
         fig.tight_layout()
-        plt.savefig('../../Figures/RF/R2_RMSE_%s.pdf' % (self._region_name))
+        plt.savefig('../../Figures/RF/R2_RMSE_%s.pdf' % (self._region_name), format='PDF')
+        plt.savefig('../../Figures/RF/R2_RMSE_%s.eps' % (self._region_name), format='EPS')
         plt.show()
 
     def plot_treeEns(self, xxx, stime=0, etime=None):
@@ -914,17 +917,22 @@ class RandomForestsDownScaling(object):
         imp_ref = np.load('%s/feature_importance_0.25deg_P_0.25deg_%s_1RF.npz' % (self._path_RF_subregion, self._region_name))
         self.sorted_idx = imp_ref['rank']
         print self.sorted_idx
-        self.width = [1.4, 1, 0.6]
+        #self.width = [1.4, 1, 0.6]
+        self.width = [0.88, 0.55, 0.33]
         plt.rc('font', **{'family':'Arial', 'size':15})
-        self.fig = plt.figure(figsize=(6,8))
+        self.fig = plt.figure(figsize=(4,8))
         self.ax_size = [0.1, 0.1, 0.8, 0.8]
-        self.ax = self.fig.add_axes(self.ax_size)
-        self.ax.spines['bottom'].set_visible(False)
-        self.ax.spines['right'].set_visible(False)
-        self.ax.xaxis.tick_top()
-        self.ax.yaxis.set_ticks_position('none')
-        self.ax.xaxis.set_label_position('top')
-        self.ax.set_yticklabels([])
+
+        '''
+        self.ax_right = self.fig.add_axes(self.ax_size)
+        self.ax_right.spines['bottom'].set_visible(False)
+        self.ax_right.spines['right'].set_visible(False)
+        self.ax_right.xaxis.tick_top()
+        self.ax_right.yaxis.set_ticks_position('none')
+        self.ax_right.xaxis.set_label_position('top')
+        self.ax_right.set_yticklabels([])
+        '''
+
         self.pos = np.arange(self.sorted_idx.shape[0]) + 0.5
         self.pos = self.pos*2
 
@@ -937,31 +945,54 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = [0.25, 0.5, 1]
-        colors1 = ['#f03b20', '#feb24c', '#c51b8a']        # For single RF
-        colors2 = ['#31a354', '#addd8e', '#67a9cf']        # For seperated RF
-
-        self.plot_settings_imp()
-        for i, iRes in enumerate(resolution):
-            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_1RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
-            importance = feature_importance['importance']
-            self.ax.barh(self.pos, importance[self.sorted_idx], self.width[i], color=colors1[i], align='center', linewidth=0, alpha=1)
-        plt.xlim([0, 0.85])
-        plt.show()
 
         self.plot_settings_imp()
         for i, iRes in enumerate(resolution):
             feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
             importance = feature_importance['importance']
-            self.ax.barh(self.pos, importance[self.sorted_idx], self.width[i], color=colors2[i], align='center', linewidth=0, alpha=1)
+            self.ax.barh(self.pos, importance[self.sorted_idx], self.width[i], color=colors_2RF[i], align='center', linewidth=0, alpha=1)
         plt.xlim([0, 0.85])
+        plt.ylim([-1, 43])
         plt.show()
 
         self.plot_settings_imp()
         for i, iRes in enumerate(resolution):
             feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF_ext.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
             importance = feature_importance['importance']
-            self.ax.barh(self.pos, importance[self.sorted_idx], self.width[i], color=colors2[i], align='center', linewidth=0, alpha=1)
+            self.ax.barh(self.pos, importance[self.sorted_idx], self.width[i], color=colors_2RF[i], align='center', linewidth=0, alpha=1)
         plt.xlim([0, 0.85])
+        plt.ylim([-1, 43])
+        plt.show()
+
+        return
+
+    def plot_feature_importance_1RF(self):
+        """
+        Plot feature importance for 1RF
+    
+        """
+
+        resolution = [0.25, 0.5, 1]
+
+        self.plot_settings_imp()
+        ax_left = self.fig.add_axes(self.ax_size)
+        ax_left.spines['bottom'].set_visible(False)
+        ax_left.spines['left'].set_visible(False)
+        ax_left.xaxis.tick_top()
+        ax_left.yaxis.set_ticks_position('none')
+        ax_left.xaxis.set_label_position('top')
+        ax_left.set_yticklabels([])
+
+        for i, iRes in enumerate(resolution):
+            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_1RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
+            importance = feature_importance['importance']
+            for j in range(len(importance)):
+                p = patches.Rectangle((0, j+(1-self.width[i])/2.0), importance[self.sorted_idx[j]], self.width[i], fill=True, transform=ax_left.transData, lw=0, facecolor=colors_1RF[i])
+                ax_left.add_patch(p)
+
+        plt.xticks(np.arange(0, 0.85, 0.2), np.arange(0, 0.85, 0.2))
+        plt.xlim([0.85, 0])
+        plt.ylim([-1, 21.5])
         plt.show()
 
         return
@@ -973,22 +1004,28 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = [0.25, 0.5, 1]
-        colors = ['#f03b20', '#feb24c', '#c51b8a']        # For upscaled atmospheric covariates
-        # colors = ['#31a354', '#addd8e', '#67a9cf']      # For 0.125 deg atmospheric covariates
         fig = plt.figure(figsize=(6, 6))
 
         for i, iRes in enumerate(resolution):
-            qq_obs = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS_2RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
-            qq_pred = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS_2RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
-            plt.scatter(qq_pred, qq_obs, color=colors[i], alpha=1, label='%s deg' % (iRes))
+            qq_obs_1RF = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS_1RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
+            qq_obs_2RF = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_NWUS_2RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float32')
+            qq_pred_1RF = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS_1RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
+            qq_pred_2RF = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_NWUS_2RF.bin' % (self._path_RF_subregion, iRes, iRes), 'float64')
+            plt.scatter(qq_pred_1RF, qq_obs_1RF, color=colors_1RF[i], alpha=1, label='1RF_%s$^\circ$' % (iRes))
+            plt.scatter(qq_pred_2RF, qq_obs_2RF, color=colors_2RF[i], alpha=1, label='2RF_%s$^\circ$' % (iRes))
 
         plt.rc('font', family='Arial')
-        plt.plot([-10, 1.1*qq_obs.max()], [-10, 1.1*qq_obs.max()], 'k--', linewidth=1.5)
-        leg = plt.legend(loc=2, prop={'size':15})
+        plt.plot([-10, 1.1*qq_obs_1RF.max()], [-10, 1.1*qq_obs_1RF.max()], 'k--', linewidth=1.5)
+        plt.xlim([-10, 1.1*qq_obs_1RF.max()])
+        plt.ylim([-10, 1.1*qq_obs_1RF.max()])
+        leg = plt.legend(loc=4, prop={'size':15})
         leg.get_frame().set_linewidth(0.0)
-        #plt.xlabel('Downscaled', size=20)
-        #plt.ylabel('Observed', size=20)
-        #plt.title('Q-Q Plot', size=25)
+        plt.xlabel('Downscaled precipitation (mm)', size=18)
+        plt.ylabel('Observed precipitation (mm)', size=18)
+        fig.tight_layout()
+        plt.savefig('../../Figures/RF/QQ_plot_%s.png' % (self._region_name), format='PNG')
+        #plt.savefig('../../Figures/RF/QQ_plot_%s.pdf' % (self._region_name), format='PDF')
+        #plt.savefig('../../Figures/RF/QQ_plot_%s.eps' % (self._region_name), format='EPS')
         plt.show()
 
         return
@@ -1022,36 +1059,80 @@ class RandomForestsDownScaling(object):
 
         return
 
-    def plot_semivariance(self):
+    def plot_semivariance_scatter(self):
         """
-        Plot the minimum semivariance from the semi-variogram 
+        Scatter plot of the minimum semivariance from the semi-variogram 
     
         """
 
         resolution = [0.25, 0.5, 1]
-        colors1 = ['#f03b20', '#feb24c', '#c51b8a']        # For single RF
-        colors2 = ['#31a354', '#addd8e', '#67a9cf']        # For seperated RF
         fig = plt.figure(figsize=(6, 6))
 
         gamma_obs = np.load('%s/minSemivariance_obs_NWUS.npz' % (self._path_RF_subregion))
         for i, iRes in enumerate(resolution):
             gamma_1RF = np.load('%s/minSemivariance_downscaled_NWUS_%sdeg_P_%sdeg_1RF.npz' % (self._path_RF_subregion, iRes, iRes))
             gamma_2RF = np.load('%s/minSemivariance_downscaled_NWUS_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, iRes, iRes))
-            plt.scatter(gamma_obs['gamma'], gamma_1RF['gamma'], marker='^', color=colors1[i], label='1RF_%sdeg' % (iRes), s=25)
-            plt.scatter(gamma_obs['gamma'], gamma_2RF['gamma'], marker='p', color=colors2[i], label='2RF_%sdeg' % (iRes), s=25)
+            plt.scatter(gamma_obs['gamma'], gamma_1RF['gamma'], marker='^', color=colors_1RF[i], label='1RF_%s$^\circ$' % (iRes), s=25)
+            plt.scatter(gamma_obs['gamma'], gamma_2RF['gamma'], marker='p', color=colors_2RF[i], label='2RF_%s$^\circ$' % (iRes), s=25)
 
         plt.plot([0,1],[0,1], '--k', linewidth=1.5)
         plt.rc('font', family='Arial')
         plt.xlim([0.05, 1])
         plt.ylim([0.05, 1])
-        plt.legend(loc=1, prop={'size':15})
+        leg = plt.legend(loc=2, prop={'size':15})
+        leg.get_frame().set_linewidth(0.0)
         plt.xlabel('Observed semivariance (lag 1)', size=18)
         plt.ylabel('Downscaled semivariance (lag 1)', size=18)
-        #plt.title('ROC Curve', size=25)
-        #plt.savefig('./ROC_curve_2.png')
+        fig.tight_layout()
+        plt.savefig('../../Figures/RF/semivariance_scatter_%s.pdf' % (self._region_name), format='PDF')
+        plt.savefig('../../Figures/RF/semivariance_scatter_%s.eps' % (self._region_name), format='EPS')
         plt.show()
 
         return
+
+    def plot_semivariance_ts(self, sTime, eTime):
+        """
+        Plot time series of the minimum semivariance from the semi-variogram
+    
+        """
+
+        resolution = [0.25, 0.5, 1]
+        gamma_obs = np.load('%s/minSemivariance_obs_NWUS.npz' % (self._path_RF_subregion))
+
+        fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(15, 6))
+        for i, iRes in enumerate(resolution):
+            gamma_1RF = np.load('%s/minSemivariance_downscaled_NWUS_%sdeg_P_%sdeg_1RF.npz' % (self._path_RF_subregion, iRes, iRes))
+            gamma_2RF = np.load('%s/minSemivariance_downscaled_NWUS_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, iRes, iRes))
+            axes[i].plot(gamma_obs['gamma'][sTime:eTime], color='k', linewidth=2, label='Obs')
+            axes[i].plot(gamma_1RF['gamma'][sTime:eTime], color='#e34a33', alpha=0.9, linewidth=2, label='1RF')
+            axes[i].plot(gamma_2RF['gamma'][sTime:eTime], color='#31a354', alpha=0.9, linewidth=2, label='2RF')
+            axes[i].spines['top'].set_visible(False)
+            axes[i].spines['bottom'].set_visible(False)
+            axes[i].spines['right'].set_visible(False)
+            axes[i].xaxis.tick_bottom()
+            axes[i].yaxis.tick_left()
+            axes[i].set_xticks([])
+            axes[i].set_xticklabels([])
+            axes[i].set_yticks(np.arange(0.2, 1.2, 0.2))
+            axes[i].set_yticklabels(np.arange(0.2, 1.2, 0.2), fontsize=15)
+            axes[i].text(0.03, 0.85, "%s$^\circ$" % (iRes), fontsize=18, horizontalalignment='left', verticalalignment='center', transform=axes[i].transAxes)
+            axes[i].set_axis_bgcolor('#E0E0E0')
+            
+        leg = axes[0].legend(loc=1, prop={'size':15})
+        leg.get_frame().set_linewidth(0.0)
+        leg.get_frame().set_color('#E0E0E0')
+        axes[1].set_ylabel('Semivariance', fontsize=18)
+        axes[2].spines['bottom'].set_visible(True)
+        axes[2].set_xticks(np.arange(0, eTime-sTime+1, 20))
+        axes[2].set_xticklabels(np.arange(sTime, eTime+1, 20), fontsize=15)
+        axes[2].set_xlabel('Time step [-]', fontsize=18)
+        #axes[2].set_xticks([0, 1, 2])
+        #axes[2].set_xticklabels(['0.25$^\circ$', '0.5$^\circ$', '1$^\circ$'], fontsize=15)
+        plt.subplots_adjust(hspace=0.05, left=0.06, right=0.97, bottom=0.12, top=0.96)
+
+        plt.savefig('../../Figures/RF/semivariance_ts_%s.pdf' % (self._region_name), format='PDF')
+        plt.savefig('../../Figures/RF/semivariance_ts_%s.eps' % (self._region_name), format='EPS')
+        plt.show()
 
     def plot_spatial_corr(nlon, nlat, data):
         """
