@@ -30,6 +30,7 @@ import matplotlib.patches as patches
 
 colors_1RF = ['#f03b20', '#feb24c', '#c51b8a']
 colors_2RF = ['#31a354', '#addd8e', '#67a9cf'] 
+width = [0.88, 0.55, 0.33]
 
 class RandomForestsDownScaling(object):
     
@@ -917,52 +918,9 @@ class RandomForestsDownScaling(object):
         imp_ref = np.load('%s/feature_importance_0.25deg_P_0.25deg_%s_1RF.npz' % (self._path_RF_subregion, self._region_name))
         self.sorted_idx = imp_ref['rank']
         print self.sorted_idx
-        #self.width = [1.4, 1, 0.6]
-        self.width = [0.88, 0.55, 0.33]
-        plt.rc('font', **{'family':'Arial', 'size':15})
-        self.fig = plt.figure(figsize=(4,8))
-        self.ax_size = [0.1, 0.1, 0.8, 0.8]
-
-        '''
-        self.ax_right = self.fig.add_axes(self.ax_size)
-        self.ax_right.spines['bottom'].set_visible(False)
-        self.ax_right.spines['right'].set_visible(False)
-        self.ax_right.xaxis.tick_top()
-        self.ax_right.yaxis.set_ticks_position('none')
-        self.ax_right.xaxis.set_label_position('top')
-        self.ax_right.set_yticklabels([])
-        '''
 
         self.pos = np.arange(self.sorted_idx.shape[0]) + 0.5
         self.pos = self.pos*2
-
-        return
-
-    def plot_feature_importance(self):
-        """
-        Plot feature importance
-    
-        """
-
-        resolution = [0.25, 0.5, 1]
-
-        self.plot_settings_imp()
-        for i, iRes in enumerate(resolution):
-            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
-            importance = feature_importance['importance']
-            self.ax.barh(self.pos, importance[self.sorted_idx], self.width[i], color=colors_2RF[i], align='center', linewidth=0, alpha=1)
-        plt.xlim([0, 0.85])
-        plt.ylim([-1, 43])
-        plt.show()
-
-        self.plot_settings_imp()
-        for i, iRes in enumerate(resolution):
-            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF_ext.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
-            importance = feature_importance['importance']
-            self.ax.barh(self.pos, importance[self.sorted_idx], self.width[i], color=colors_2RF[i], align='center', linewidth=0, alpha=1)
-        plt.xlim([0, 0.85])
-        plt.ylim([-1, 43])
-        plt.show()
 
         return
 
@@ -975,7 +933,9 @@ class RandomForestsDownScaling(object):
         resolution = [0.25, 0.5, 1]
 
         self.plot_settings_imp()
-        ax_left = self.fig.add_axes(self.ax_size)
+        fig = plt.figure(figsize=(4,8))
+        ax_size = [0.1, 0.1, 0.8, 0.8]
+        ax_left = fig.add_axes(ax_size)
         ax_left.spines['bottom'].set_visible(False)
         ax_left.spines['left'].set_visible(False)
         ax_left.xaxis.tick_top()
@@ -987,13 +947,160 @@ class RandomForestsDownScaling(object):
             feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_1RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
             importance = feature_importance['importance']
             for j in range(len(importance)):
-                p = patches.Rectangle((0, j+(1-self.width[i])/2.0), importance[self.sorted_idx[j]], self.width[i], fill=True, transform=ax_left.transData, lw=0, facecolor=colors_1RF[i])
+                p = patches.Rectangle((0, j+(1-width[i])/2.0), importance[self.sorted_idx[j]], width[i], fill=True, transform=ax_left.transData, lw=0, facecolor=colors_1RF[i])
                 ax_left.add_patch(p)
 
         plt.xticks(np.arange(0, 0.85, 0.2), np.arange(0, 0.85, 0.2))
         plt.xlim([0.85, 0])
         plt.ylim([-1, 21.5])
         plt.show()
+
+        return
+
+    def plot_feature_importance_2RF(self):
+        """
+        Plot feature importance for 2RF
+    
+        """
+
+        resolution = [0.25, 0.5, 1]
+
+        self.plot_settings_imp()
+        fig = plt.figure(figsize=(4,8))
+        ax_size = [0.1, 0.1, 0.8, 0.8]
+        ax = fig.add_axes(ax_size)
+        for i, iRes in enumerate(resolution):
+            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
+            importance = feature_importance['importance']
+            ax.barh(self.pos, importance[self.sorted_idx], width[i], color=colors_2RF[i], align='center', linewidth=0, alpha=1)
+        plt.xlim([0, 0.85])
+        plt.ylim([-1, 43])
+        plt.show()
+
+        fig = plt.figure(figsize=(4,8))
+        ax_size = [0.1, 0.1, 0.8, 0.8]
+        ax = fig.add_axes(ax_size)
+        for i, iRes in enumerate(resolution):
+            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF_ext.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
+            importance = feature_importance['importance']
+            ax.barh(self.pos, importance[self.sorted_idx], width[i], color=colors_2RF[i], align='center', linewidth=0, alpha=1)
+        plt.xlim([0, 0.85])
+        plt.ylim([-1, 43])
+        plt.show()
+
+        return
+
+    def plot_feature_importance_1RF_2RF(self):
+        """
+        Plot feature importance for 1RF, 2RF and 2RF_extreme together
+    
+        """
+
+        self.plot_settings_imp()
+        resolution = [0.25, 0.5, 1]
+
+        matplotlib.rc('grid', color='white')
+        matplotlib.rc('grid', linewidth=1)
+
+        fig = plt.figure(figsize=(12,7), facecolor='white')
+
+        # Plot feature importance for 1RF
+        axes_left  = fig.add_axes([0.01, 0.01, 0.25, 0.92])
+
+        # Keep only top and right spines
+        axes_left.spines['left'].set_color('none')
+        axes_left.spines['right'].set_zorder(10)
+        axes_left.spines['bottom'].set_color('none')
+        axes_left.xaxis.set_ticks_position('top')
+        axes_left.yaxis.set_ticks_position('none')
+        axes_left.set_yticklabels([])
+
+        for i, iRes in enumerate(resolution):
+            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_1RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
+            importance = feature_importance['importance']
+            for j in range(len(importance)):
+                p = patches.Rectangle((0, j+(1-width[i])/2.0), importance[self.sorted_idx[j]], width[i], fill=True, transform=axes_left.transData, lw=0, facecolor=colors_1RF[i])
+                axes_left.add_patch(p)
+
+        axes_left.set_xticks(np.arange(0.2, 0.85, 0.2))
+        axes_left.set_xticklabels(np.arange(0.2, 0.85, 0.2))
+        axes_left.set_xlim([0.85, 0])
+        axes_left.set_ylim([-0.5, 21.5])
+        axes_left.grid()
+
+        arrowprops = dict(arrowstyle="-", connectionstyle="angle,angleA=0,angleB=90,rad=0")
+        axes_left.annotate('0.25$^\circ$', xy=(.9*0.8, 20.5), xycoords='data', horizontalalignment='right', fontsize= 18, xytext=(0.25, 0.6), textcoords='axes fraction', arrowprops=arrowprops)
+        axes_left.annotate('0.5$^\circ$', xy=(.9*0.5, 20.5), xycoords='data', horizontalalignment='right', fontsize= 18, xytext=(0.55, 0.6), textcoords='axes fraction', arrowprops=arrowprops)
+        axes_left.annotate('1$^\circ$', xy=(.9*0.2, 20.5), xycoords='data', horizontalalignment='right', fontsize= 18, xytext=(0.85, 0.6), textcoords='axes fraction', arrowprops=arrowprops)
+
+        # Plot feature importance for 2RF (normal)
+        axes_right  = fig.add_axes([0.45, 0.01, 0.25, 0.92])
+
+        # Keep only top and left spines
+        axes_right.spines['right'].set_color('none')
+        axes_right.spines['left'].set_zorder(10)
+        axes_right.spines['bottom'].set_color('none')
+        axes_right.xaxis.set_ticks_position('top')
+        axes_right.yaxis.set_ticks_position('none')
+        axes_right.set_yticklabels([])
+
+        for i, iRes in enumerate(resolution):
+            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
+            importance = feature_importance['importance']
+            for j in range(len(importance)):
+                p = patches.Rectangle((0, j+(1-width[i])/2.0), importance[self.sorted_idx[j]], width[i], fill=True, transform=axes_right.transData, lw=0, facecolor=colors_2RF[i])
+                axes_right.add_patch(p)
+
+        axes_right.set_xticks(np.arange(0.2, 0.85, 0.2))
+        axes_right.set_xticklabels(np.arange(0.2, 0.85, 0.2))
+        axes_right.set_xlim([0, 0.85])
+        axes_right.set_ylim([-0.5, 21.5])
+        axes_right.grid()
+
+        # Plot feature importance for 2RF (extreme)
+        axes_right_ext  = fig.add_axes([0.72, 0.01, 0.25, 0.92])
+
+        # Keep only top and left spines
+        axes_right_ext.spines['right'].set_color('none')
+        axes_right_ext.spines['left'].set_zorder(10)
+        axes_right_ext.spines['bottom'].set_color('none')
+        axes_right_ext.xaxis.set_ticks_position('top')
+        axes_right_ext.yaxis.set_ticks_position('none')
+        axes_right_ext.set_yticklabels([])
+
+        for i, iRes in enumerate(resolution):
+            feature_importance = np.load('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF_ext.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
+            importance = feature_importance['importance']
+            for j in range(len(importance)):
+                p = patches.Rectangle((0, j+(1-width[i])/2.0), importance[self.sorted_idx[j]], width[i], fill=True, transform=axes_right_ext.transData, lw=0, facecolor=colors_2RF[i])
+                axes_right_ext.add_patch(p)
+
+        axes_right_ext.set_xticks(np.arange(0.2, 0.85, 0.2))
+        axes_right_ext.set_xticklabels(np.arange(0.2, 0.85, 0.2))
+        axes_right_ext.set_xlim([0, 0.85])
+        axes_right_ext.set_ylim([-0.5, 21.5])
+        axes_right_ext.grid()
+        axes_right.annotate('1$^\circ$', xy=(.9*0.2, 20.5), xycoords='data', horizontalalignment='right', fontsize= 18, xytext=(0.25, 0.6), textcoords='axes fraction', arrowprops=arrowprops)
+        axes_right.annotate('0.5$^\circ$', xy=(.9*0.5, 20.5), xycoords='data', horizontalalignment='right', fontsize= 18, xytext=(0.6, 0.6), textcoords='axes fraction', arrowprops=arrowprops)
+        axes_right.annotate('0.25$^\circ$', xy=(.9*0.8, 20.5), xycoords='data', horizontalalignment='right', fontsize= 18, xytext=(0.95, 0.6), textcoords='axes fraction', arrowprops=arrowprops)
+
+        # Y axis labels
+        fea_label = ['Veg type', 'Texture', 'Elevation (mean)', 'DOY', 'Lon', 'Slope', 'Pressure', 'Elevation (std)', 'Aspect', 'Lat', 'Meridional wind', 'Humidity', 'CAPE', 'Zonal wind', 'Temperature', 'Prec (up)', 'Prec (left)', 'Prec (right)', 'Prec (down)', 'Distance', 'Prec (central)']    # SEUS
+
+        for i in range(21):
+            x1, y1 = axes_left.transData.transform_point((0, i+.5))
+            x2, y2 = axes_right.transData.transform_point((0, i+.5))
+            x, y = fig.transFigure.inverted().transform_point( ((x1+x2)/2,y1) )
+            plt.text(x, y, fea_label[i], transform=fig.transFigure, fontsize=15, horizontalalignment='center', verticalalignment='center')
+
+        #fig.tight_layout()
+
+        axes_left.text(0.4, 0.27, "1RF", fontsize=20, fontweight='bold', horizontalalignment='left', verticalalignment='top', transform=axes_left.transAxes)
+        axes_right.text(0.5, 0.27, "2RF \n (Moderate)", fontsize=20, fontweight='bold', horizontalalignment='center', verticalalignment='top', transform=axes_right.transAxes) 
+        axes_right_ext.text(0.5, 0.27, "2RF \n (Extreme)", fontsize=20, fontweight='bold', horizontalalignment='center', verticalalignment='top', transform=axes_right_ext.transAxes)
+
+        plt.savefig('../../Figures/RF/feature_importance_%s.pdf' % (self._region_name), format='PDF')
+        plt.savefig('../../Figures/RF/feature_importance_%s.eps' % (self._region_name), format='EPS')
 
         return
 
@@ -1020,8 +1127,8 @@ class RandomForestsDownScaling(object):
         plt.ylim([-10, 1.1*qq_obs_1RF.max()])
         leg = plt.legend(loc=4, prop={'size':15})
         leg.get_frame().set_linewidth(0.0)
-        plt.xlabel('Downscaled precipitation (mm)', size=18)
-        plt.ylabel('Observed precipitation (mm)', size=18)
+        plt.xlabel('Downscaled precipitation [mm]', size=18)
+        plt.ylabel('Observed precipitation [mm]', size=18)
         fig.tight_layout()
         plt.savefig('../../Figures/RF/QQ_plot_%s.png' % (self._region_name), format='PNG')
         #plt.savefig('../../Figures/RF/QQ_plot_%s.pdf' % (self._region_name), format='PDF')
@@ -1054,7 +1161,6 @@ class RandomForestsDownScaling(object):
         plt.xlabel('False Positive Ratio', size=20)
         plt.ylabel('True Positive Ratio', size=20)
         plt.title('ROC Curve', size=25)
-        #plt.savefig('./ROC_curve_2.png')
         plt.show()
 
         return
@@ -1081,8 +1187,8 @@ class RandomForestsDownScaling(object):
         plt.ylim([0.05, 1])
         leg = plt.legend(loc=2, prop={'size':15})
         leg.get_frame().set_linewidth(0.0)
-        plt.xlabel('Observed semivariance (lag 1)', size=18)
-        plt.ylabel('Downscaled semivariance (lag 1)', size=18)
+        plt.xlabel('Observed semivariance (lag 1) [-]', size=18)
+        plt.ylabel('Downscaled semivariance (lag 1) [-]', size=18)
         fig.tight_layout()
         plt.savefig('../../Figures/RF/semivariance_scatter_%s.pdf' % (self._region_name), format='PDF')
         plt.savefig('../../Figures/RF/semivariance_scatter_%s.eps' % (self._region_name), format='EPS')
@@ -1121,13 +1227,11 @@ class RandomForestsDownScaling(object):
         leg = axes[0].legend(loc=1, prop={'size':15})
         leg.get_frame().set_linewidth(0.0)
         leg.get_frame().set_color('#E0E0E0')
-        axes[1].set_ylabel('Semivariance', fontsize=18)
+        axes[1].set_ylabel('Semivariance [-]', fontsize=18)
         axes[2].spines['bottom'].set_visible(True)
         axes[2].set_xticks(np.arange(0, eTime-sTime+1, 20))
         axes[2].set_xticklabels(np.arange(sTime, eTime+1, 20), fontsize=15)
         axes[2].set_xlabel('Time step [-]', fontsize=18)
-        #axes[2].set_xticks([0, 1, 2])
-        #axes[2].set_xticklabels(['0.25$^\circ$', '0.5$^\circ$', '1$^\circ$'], fontsize=15)
         plt.subplots_adjust(hspace=0.05, left=0.06, right=0.97, bottom=0.12, top=0.96)
 
         plt.savefig('../../Figures/RF/semivariance_ts_%s.pdf' % (self._region_name), format='PDF')
