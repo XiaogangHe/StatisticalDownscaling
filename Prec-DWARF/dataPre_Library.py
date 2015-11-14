@@ -558,7 +558,7 @@ class RandomForestsDownScaling(object):
 
         return
 
-    def read_prec_downscaled(self, resolution=None):
+    def read_prec_downscaled(self, resolution=None, RF_seperate=False):
         """
         This function is used to read the downscaled precipitation from output file
     
@@ -566,10 +566,14 @@ class RandomForestsDownScaling(object):
             :resolution (str): coarse resolution 
     
         """
-
         resolution = resolution or self._res_coarse
-        prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
-                          (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine)
+
+        if RF_seperate == True:
+            prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
+                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine)
+        else:
+            prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
+                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine)
 
         return prec_downscaled
 
@@ -696,8 +700,8 @@ class RandomForestsDownScaling(object):
         plt.plot(fpr, tpr, linewidth=2.5, label='ROC curve (area = %0.2f)' % roc_auc)
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
-        plt.xlim([0,0.2])
-        plt.ylim([0.4,1.05])
+        plt.xlim([0, 0.2])
+        plt.ylim([0.4, 1.05])
         plt.legend(loc='best')
         plt.show()
 
@@ -825,6 +829,73 @@ class RandomForestsDownScaling(object):
         M.colorbar()
         plt.title('%s' %(title))
         # plt.savefig('../../Figures/Animation/%s_SEUS_adjacent_0.5deg_bi-linear_%s.png' % (title, i), format='PNG')
+        plt.show()
+
+    def imshow_prec_obs_pre(self, obs, pre, itime=0, vmax=None, vmin=0, title=None):
+        """
+        Plot observed and downscaled precipitation using customized color table
+
+        Args:
+            :pre (array): downscaled precipitation
+            :itime (int): ith time step
+            :vmax (float): max value for colorbar 
+    
+        """
+
+        # Read data
+        resolution = [0.25, 0.5, 1]
+
+        for iRes in resolution:
+            prec_pred_1RF = self.read_prec_downscaled(iRes)
+
+        # Plot
+        from mpl_toolkits.axes_grid1 import AxesGrid
+
+        cmap = self.cmap_customized()
+        fig = plt.figure(figsize=(10, 8))
+
+        # Show the spatial pattern for observed precipitation
+        ax_obs      = fig.add_axes([0.05, 0.4, 0.2, 0.2])
+        M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
+        M.ax = ax_obs
+        M.imshow(np.ma.masked_equal(obs
+                   .reshape(-1, self._nlat_fine, self._nlon_fine)[itime], -9.99e+08), 
+                   cmap=cmap, 
+                   interpolation='nearest', 
+                   vmin=vmin, 
+                   vmax=vmax) 
+        M.drawcoastlines()
+        M.drawstates()
+
+        # Show the spatial pattern for downscaled precipitation (6 experiments)
+        grid = AxesGrid(fig, [0.35, 0.01, 0.6, 0.9],
+                nrows_ncols=(2, 3),
+                axes_pad=0.5,
+                label_mode='L',
+                cbar_mode='single',
+                cbar_pad=0.1,
+                cbar_size=0.1,
+                cbar_location='right',
+                share_all=True,
+                )
+
+        for nt in range(6):
+            ax = grid[nt]
+            M.ax = ax
+            cs = M.imshow(np.ma.masked_equal(pre
+                       .reshape(-1, self._nlat_fine, self._nlon_fine)[itime], -9.99e+08), 
+                       cmap=cmap, 
+                       interpolation='nearest', 
+                       vmin=vmin, 
+                       vmax=vmax) 
+            M.drawcoastlines()
+            M.drawstates()
+            # ax.set_title('%d'%(nt+1))
+
+        figtext(0.5,0.95,"SCIA deltaD (2005)",horizontalalignment='center',fontsize=20)
+        cbar        = fig.colorbar(cs, cax=grid.cbar_axes[0], orientation='vertical')
+        cbar.set_label('permil')
+
         plt.show()
 
     def plot_R2_RMSE(self):
