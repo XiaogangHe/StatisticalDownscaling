@@ -6,6 +6,7 @@ from pandas import DataFrame
 from matplotlib import colors
 from mpl_toolkits.basemap import Basemap
 from sklearn.ensemble import RandomForestRegressor
+import pylab
 import os
 import numpy as np
 import matplotlib
@@ -31,6 +32,19 @@ import matplotlib.patches as patches
 colors_1RF = ['#f03b20', '#feb24c', '#c51b8a']
 colors_2RF = ['#31a354', '#addd8e', '#67a9cf'] 
 width = [0.88, 0.55, 0.33]
+
+font = {'family' : 'CMU Sans Serif'}
+matplotlib.rc('font', **font)
+
+params = {'backend': 'ps',
+          'axes.labelsize': 18,
+          'font.size': 22,
+          'legend.fontsize': 15,
+          'xtick.labelsize': 15,
+          'ytick.labelsize': 15,
+          'text.usetex': False,
+          'figure.figsize': (6,6)}
+pylab.rcParams.update(params)
 
 class RandomForestsDownScaling(object):
     
@@ -533,7 +547,7 @@ class RandomForestsDownScaling(object):
             ind = prec_pred_df['prec_fine'] != 0
             prec_pred_df['prec_fine'][ind] = np.power(10, prec_pred_df['prec_fine'][ind])
  
-        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' 
+        prec_pred_df['prec_fine'].values.tofile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' 
                                                       % (self._path_RF_subregion, self._region_name, self._res_coarse, self._res_coarse))
         return prec_pred_df
 
@@ -570,15 +584,15 @@ class RandomForestsDownScaling(object):
         resolution = resolution or self._res_coarse
 
         if RF_seperate == True:
-            #prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
-            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine)
             prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
-                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)
+                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine) # SWUS, NEUS, SEUS
+            #prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
+            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)  # CUS 
         else:
-            #prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
-            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine)
             prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
-                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)
+                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine) # SWUS, NEUS, SEUS
+            #prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
+            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)  # CUS
 
         return prec_downscaled
 
@@ -674,8 +688,8 @@ class RandomForestsDownScaling(object):
         plt.title('%s deg' % (resolution))
         plt.show()
 
-        pp_observed.sample_quantiles.tofile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s_1RF.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
-        pp_downscaled.sample_quantiles.tofile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_1RF.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+        pp_observed.sample_quantiles.tofile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s_2RF.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
+        pp_downscaled.sample_quantiles.tofile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_2RF.bin' % (self._path_RF_subregion, resolution, resolution, self._region_name))
 
         return 
 
@@ -693,6 +707,8 @@ class RandomForestsDownScaling(object):
 
         prec_observed = self.prepare_prec_fine()
         prec_downscaled = self.read_prec_downscaled(resolution, RF_seperate=self._seperateRF)
+        print prec_downscaled.shape
+        print prec_observed.shape
 
         prec_observed_valid = prec_observed[prec_downscaled > -9.99e+08]
         prec_downscaled_valid = prec_downscaled[prec_downscaled > -9.99e+08]
@@ -710,7 +726,7 @@ class RandomForestsDownScaling(object):
         plt.legend(loc='best')
         plt.show()
 
-        np.savez('%s/ROC_statistics_%sdeg_P_%sdeg_%s_1RF.npz' % (self._path_RF_subregion, resolution, resolution, self._region_name), 
+        np.savez('%s/ROC_statistics_%sdeg_P_%sdeg_%s_2RF.npz' % (self._path_RF_subregion, resolution, resolution, self._region_name), 
                  fpr=fpr, tpr=tpr, auc=roc_auc, thresholds=thresholds)
 
         return
@@ -724,7 +740,7 @@ class RandomForestsDownScaling(object):
         self.fit_RF()
         importances = self.reg.feature_importances_
         indices = np.argsort(importances)    
-        np.savez('%s/feature_importance_%sdeg_P_%sdeg_%s_1RF.npz' % (self._path_RF_subregion, self._res_coarse ,self._res_coarse, self._region_name), importance=importances, rank=indices)
+        np.savez('%s/feature_importance_%sdeg_P_%sdeg_%s_2RF.npz' % (self._path_RF_subregion, self._res_coarse ,self._res_coarse, self._region_name), importance=importances, rank=indices)
         feature_num = importances.shape[0]
         indices = indices[::-1]
         covariate_name = list(self.features_land_df.columns.values)
@@ -763,7 +779,7 @@ class RandomForestsDownScaling(object):
         resolution = resolution or self._res_coarse
         gamma = np.array([self.compute_variogram(pre, i)[1][0] for i in range(self._ntime)])
         #np.savez('%s/minSemivariance_obs_%s.npz' % (self._path_RF_subregion, self._region_name), gamma=gamma) 
-        np.savez('%s/minSemivariance_downscaled_%s_%sdeg_P_%sdeg_1RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), gamma=gamma) 
+        np.savez('%s/minSemivariance_downscaled_%s_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), gamma=gamma) 
 
         return
 
@@ -871,10 +887,10 @@ class RandomForestsDownScaling(object):
         fig = plt.figure(figsize=(20, 8))
 
         # Show the spatial pattern for observed precipitation
-        # ax_obs      = fig.add_axes([0.01, 0.3, 0.35, 0.35])    # NWUS
-        # ax_obs      = fig.add_axes([0.01, 0.3, 0.4, 0.4])        # SEUS
-        # ax_obs      = fig.add_axes([0.01, 0.3, 0.45, 0.45])        # NEUS
-        ax_obs      = fig.add_axes([0.01, 0.3, 0.4, 0.4])        # NEUS
+        ax_obs      = fig.add_axes([0.01, 0.3, 0.35, 0.35])    # SWUS
+        #ax_obs      = fig.add_axes([0.01, 0.3, 0.45, 0.45])        # SEUS
+        #ax_obs      = fig.add_axes([0.01, 0.3, 0.45, 0.45])        # NEUS
+        #ax_obs      = fig.add_axes([0.01, 0.3, 0.4, 0.4])        # CUS
         # M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
         M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
         M.ax = ax_obs
@@ -883,18 +899,18 @@ class RandomForestsDownScaling(object):
                    interpolation='nearest', 
                    vmin=vmin, 
                    vmax=vmax) 
-        ax_obs.text(0.05, 0.05, 'Obs', fontsize=15, transform=ax_obs.transAxes)
-        #ax_obs.text(0.8, 0.05, 'Obs', fontsize=15, transform=ax_obs.transAxes)    # NEUS
+        ax_obs.text(0.05, 0.05, 'Obs', transform=ax_obs.transAxes, fontweight='semibold')
+        #ax_obs.text(0.8, 0.05, 'Obs', transform=ax_obs.transAxes, fontweight='semibold')    # NEUS
         M.drawcoastlines()
         M.drawcountries(linewidth=2)
         M.drawstates()
 
         # Show the spatial pattern for downscaled precipitation (6 experiments)
         labels = ['1RF_0.25$^\circ$', '1RF_0.5$^\circ$', '1RF_1$^\circ$', '2RF_0.25$^\circ$', '2RF_0.5$^\circ$', '2RF_1$^\circ$']
-        # grid = AxesGrid(fig, [0.3, 0.01, 0.6, 0.95],    # NWUS
+        grid = AxesGrid(fig, [0.3, 0.01, 0.6, 0.95],    # SWUS
         # grid = AxesGrid(fig, [0.31, 0.01, 0.6, 0.95],     # SEUS
         # grid = AxesGrid(fig, [0.335, 0.01, 0.6, 0.95],     # NEUS
-        grid = AxesGrid(fig, [0.325, 0.01, 0.6, 0.95],     # NEUS
+        #grid = AxesGrid(fig, [0.325, 0.01, 0.6, 0.95],     # CUS
                 nrows_ncols=(2, 3),
                 axes_pad=0.15,
                 label_mode='L',
@@ -913,14 +929,14 @@ class RandomForestsDownScaling(object):
                        interpolation='nearest', 
                        vmin=vmin, 
                        vmax=vmax) 
-            ax.text(0.05, 0.05, labels[nt], fontsize=15, transform=ax.transAxes)
-            #ax.text(0.7, 0.05, labels[nt], fontsize=15, transform=ax.transAxes)    # NEUS
+            ax.text(0.05, 0.05, labels[nt], transform=ax.transAxes, fontweight='semibold')
+            #ax.text(0.55, 0.05, labels[nt], transform=ax.transAxes, fontweight='semibold')    # NEUS
             M.drawcountries(linewidth=2)
             M.drawcoastlines()
             M.drawstates()
 
         # fig.text(0.1, 0.75, "(a)", horizontalalignment='center', fontsize=25, fontweight='bold')
-        fig.text(0.155, 0.22, "2011.06.26.(847)", horizontalalignment='left', fontsize=25)    # NEUS
+        # fig.text(0.155, 0.22, "2011.06.26.(847)", horizontalalignment='left', fontsize=25)    # NEUS
         cbar = fig.colorbar(cs, cax=grid.cbar_axes[0], orientation='vertical', extend='both')
         cbar.set_label('[mm]', position=(1, 1), rotation=0)
 
@@ -937,14 +953,14 @@ class RandomForestsDownScaling(object):
 
         resolution = [0.25, 0.5, 1]
 
-        #R2 = np.array([0.799, 0.668, 0.501, 0.858, 0.747, 0.549])      # NWUS
-        #RMSE = np.array([0.117, 0.150, 0.184, 0.098, 0.131, 0.175])    # NWUS
-        #R2 = np.array([0.846, 0.708, 0.529, 0.868, 0.754, 0.606])      # SEUS
-        #RMSE = np.array([0.348, 0.478, 0.608, 0.322, 0.439, 0.556])    # SEUS
+        R2 = np.array([0.799, 0.668, 0.501, 0.858, 0.747, 0.549])      # SWUS
+        RMSE = np.array([0.117, 0.150, 0.184, 0.098, 0.131, 0.175])    # SWUS
+        #R2 = np.array([0.922, 0.830, 0.674, 0.932, 0.859, 0.741])       # CUS
+        #RMSE = np.array([0.212, 0.313, 0.434, 0.198, 0.286, 0.387])     # CUS
         #R2 = np.array([0.914, 0.822, 0.661, 0.928, 0.852, 0.732])      # NEUS
         #RMSE = np.array([0.181, 0.260, 0.359, 0.166, 0.237, 0.319])    # NEUS
-        R2 = np.array([0.922, 0.830, 0.674, 0.932, 0.859, 0.741])       # CUS
-        RMSE = np.array([0.212, 0.313, 0.434, 0.198, 0.286, 0.387])     # CUS
+        #R2 = np.array([0.846, 0.708, 0.529, 0.868, 0.754, 0.606])      # SEUS
+        #RMSE = np.array([0.348, 0.478, 0.608, 0.322, 0.439, 0.556])    # SEUS
 
         fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(6, 6))
 
@@ -957,12 +973,12 @@ class RandomForestsDownScaling(object):
         ax1.plot(RMSE[3:], '-p', color='#31a354', linewidth=5, markersize=12, alpha=0.9)
         ax1.set_ylim([0.8*RMSE.min(), 1.1*RMSE.max()])
         ax1.set_xlim([-0.5, 2.5])
-        leg = ax1.legend(loc=4, prop={'size':15})
+        leg = ax1.legend(loc=4)
         leg.get_frame().set_linewidth(0.0)
         ax1.set_xticks([0, 1, 2])
-        ax1.set_xticklabels(['0.25$^\circ$', '0.5$^\circ$', '1$^\circ$'], fontsize=15)
-        ax1.tick_params(axis='y', labelsize=15)
-        fig.text(0.15, 0.9, "RMSE", fontsize=20)
+        ax1.set_xticklabels(['0.25$^\circ$', '0.5$^\circ$', '1$^\circ$'])
+        ax1.tick_params(axis='y')
+        fig.text(0.15, 0.9, "RMSE")
 
         # Plot R2
         ax2.spines['top'].set_visible(False)
@@ -973,15 +989,16 @@ class RandomForestsDownScaling(object):
         ax2.plot(R2[3:], '-p', color='#31a354', linewidth=5, markersize=12, alpha=0.9, label='2RF')
         ax2.set_ylim([0.8*R2.min(), 1.1*R2.max()])
         ax2.set_xlim([-0.5, 2.5])
-        leg = ax2.legend(loc=3, prop={'size':15})
+        leg = ax2.legend(loc=3)
         leg.get_frame().set_linewidth(0.0)
         ax2.set_xticks([0, 1, 2])
-        ax2.set_xticklabels(['0.25$^\circ$', '0.5$^\circ$', '1$^\circ$'], fontsize=15)
+        ax2.set_xticklabels(['0.25$^\circ$', '0.5$^\circ$', '1$^\circ$'])
         #ax2.set_yticks([0.5, 0.6, 0.7, 0.8, 0.9])
         #ax2.set_yticklabels([0.5, 0.6, 0.7, 0.8, 0.9], fontsize=15)
-        ax2.tick_params(axis='y', labelsize=15)
-        fig.text(0.82, 0.9, "R2", fontsize=20)
-
+        ax2.tick_params(axis='y')
+        fig.text(0.82, 0.9, "R2")
+        fig.text(0.4, 0.95, "(a) %s" % (self._region_name), fontweight='semibold')
+ 
         fig.tight_layout()
         plt.savefig('../../Figures/RF/R2_RMSE_%s.pdf' % (self._region_name), format='PDF')
         plt.savefig('../../Figures/RF/R2_RMSE_%s.eps' % (self._region_name), format='EPS')
@@ -1193,10 +1210,10 @@ class RandomForestsDownScaling(object):
         axes_right.annotate('0.25$^\circ$', xy=(.9*0.8, 20.5), xycoords='data', horizontalalignment='right', fontsize= 18, xytext=(0.95, 0.6), textcoords='axes fraction', arrowprops=arrowprops)
 
         # Y axis labels
-        # fea_label = ['Veg type', 'Texture', 'Elevation (mean)', 'DOY', 'Lon', 'Slope', 'Pressure', 'Elevation (std)', 'Aspect', 'Lat', 'Meridional wind', 'Humidity', 'CAPE', 'Zonal wind', 'Temperature', 'Prec (up)', 'Prec (left)', 'Prec (right)', 'Prec (down)', 'Distance', 'Prec (central)']    # NWUS
-        # fea_label = ['Texture', 'Veg type', 'Elevation (mean)', 'Elevation (std)', 'Slope', 'DOY', 'Pressure', 'Lat', 'Lon', 'CAPE', 'Aspect', 'Humidity', 'Zonal wind', 'Meridional wind', 'Distance', 'Temperature', 'Prec (left)', 'Prec (right)', 'Prec (up)', 'Prec (down)', 'Prec (central)']    # SEUS
+        # fea_label = ['Veg type', 'Texture', 'Elevation (mean)', 'DOY', 'Lon', 'Slope', 'Pressure', 'Elevation (std)', 'Aspect', 'Lat', 'Meridional wind', 'Humidity', 'CAPE', 'Zonal wind', 'Temperature', 'Prec (up)', 'Prec (left)', 'Prec (right)', 'Prec (down)', 'Distance', 'Prec (central)']    # SWUS
+        # fea_label = ['Veg type', 'Texture', 'Lon', 'Elevation (mean)', 'DOY', 'Pressure', 'Meridional wind', 'CAPE', 'Elevation (std)', 'Slope', 'Humidity', 'Aspect', 'Lat', 'Zonal wind', 'Temperature', 'Distance', 'Prec (right)', 'Prec (low)', 'Prec (down)', 'Prec (up)', 'Prec (central)']    # CUS
         # fea_label = ['Texture', 'Veg type', 'DOY', 'Elevation (mean)', 'Humidity', 'Elevation (std)', 'Slope', 'Pressure', 'CAPE', 'Temperature', 'Meridional wind', 'Zonal wind', 'Aspect', 'Lon', 'Lat', 'Distance', 'Prec (right)', 'Prec (low)', 'Prec (down)', 'Prec (up)', 'Prec (central)']    # NEUS
-        fea_label = ['Veg type', 'Texture', 'Lon', 'Elevation (mean)', 'DOY', 'Pressure', 'Meridional wind', 'CAPE', 'Elevation (std)', 'Slope', 'Humidity', 'Aspect', 'Lat', 'Zonal wind', 'Temperature', 'Distance', 'Prec (right)', 'Prec (low)', 'Prec (down)', 'Prec (up)', 'Prec (central)']    # CUS
+        fea_label = ['Texture', 'Veg type', 'Elevation (mean)', 'Elevation (std)', 'Slope', 'DOY', 'Pressure', 'Lat', 'Lon', 'CAPE', 'Aspect', 'Humidity', 'Zonal wind', 'Meridional wind', 'Distance', 'Temperature', 'Prec (left)', 'Prec (right)', 'Prec (up)', 'Prec (down)', 'Prec (central)']    # SEUS
 
         for i in range(21):
             x1, y1 = axes_left.transData.transform_point((0, i+.5))
@@ -1206,12 +1223,13 @@ class RandomForestsDownScaling(object):
 
         #fig.tight_layout()
 
-        axes_left.text(0.4, 0.27, "1RF", fontsize=20, fontweight='bold', horizontalalignment='left', verticalalignment='top', transform=axes_left.transAxes)
-        axes_right.text(0.5, 0.27, "2RF \n (Moderate)", fontsize=20, fontweight='bold', horizontalalignment='center', verticalalignment='top', transform=axes_right.transAxes) 
-        axes_right_ext.text(0.5, 0.27, "2RF \n (Extreme)", fontsize=20, fontweight='bold', horizontalalignment='center', verticalalignment='top', transform=axes_right_ext.transAxes)
+        axes_left.text(0.4, 0.27, "1RF", fontweight='semibold', horizontalalignment='left', verticalalignment='top', transform=axes_left.transAxes)
+        axes_right.text(0.5, 0.27, "2RF \n (Moderate)", fontweight='semibold', horizontalalignment='center', verticalalignment='top', transform=axes_right.transAxes) 
+        axes_right_ext.text(0.5, 0.27, "2RF \n (Extreme)", fontweight='semibold', horizontalalignment='center', verticalalignment='top', transform=axes_right_ext.transAxes)
 
         plt.savefig('../../Figures/RF/feature_importance_%s.pdf' % (self._region_name), format='PDF')
         plt.savefig('../../Figures/RF/feature_importance_%s.eps' % (self._region_name), format='EPS')
+        #plt.savefig('../../Figures/RF/feature_importance_%s.svg' % (self._region_name), format='SVG')
 
         return
 
@@ -1222,31 +1240,31 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = [0.25, 0.5, 1]
-        fig = plt.figure(figsize=(6, 6))
+        fig = plt.figure()
 
         for i, iRes in enumerate(resolution):
             qq_obs_1RF = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s_1RF.bin' % (self._path_RF_subregion, iRes, iRes, self._region_name), 'float32')
             qq_obs_2RF = np.fromfile('%s/quantiles_obsmask_LargeMeteo_%sdeg_P_%sdeg_%s_2RF.bin' % (self._path_RF_subregion, iRes, iRes, self._region_name), 'float32')
-            #qq_pred_1RF = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_1RF.bin' % (self._path_RF_subregion, iRes, iRes, self._region_name), 'float64')
-            #qq_pred_2RF = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_2RF.bin' % (self._path_RF_subregion, iRes, iRes, self._region_name), 'float64')
-            qq_pred_1RF = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_1RF.bin' % (self._path_RF_subregion, iRes, iRes, self._region_name), 'float32')
-            qq_pred_2RF = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_2RF.bin' % (self._path_RF_subregion, iRes, iRes, self._region_name), 'float32')
+            qq_pred_1RF = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_1RF.bin' % (self._path_RF_subregion, iRes, iRes, self._region_name), 'float64')
+            qq_pred_2RF = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_2RF.bin' % (self._path_RF_subregion, iRes, iRes, self._region_name), 'float64')
+            #qq_pred_1RF = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_1RF.bin' % (self._path_RF_subregion, iRes, iRes, self._region_name), 'float32')
+            #qq_pred_2RF = np.fromfile('%s/quantiles_downscaled_LargeMeteo_%sdeg_P_%sdeg_%s_2RF.bin' % (self._path_RF_subregion, iRes, iRes, self._region_name), 'float32')
             plt.scatter(qq_pred_1RF, qq_obs_1RF, color=colors_1RF[i], alpha=1, label='1RF_%s$^\circ$' % (iRes))
             plt.scatter(qq_pred_2RF, qq_obs_2RF, color=colors_2RF[i], alpha=1, label='2RF_%s$^\circ$' % (iRes))
 
-        plt.rc('font', family='Arial')
         plt.plot([-10, 1.1*qq_obs_1RF.max()], [-10, 1.1*qq_obs_1RF.max()], 'k--', linewidth=1.5)
         plt.xlim([-10, 1.1*qq_obs_1RF.max()])
         plt.ylim([-10, 1.1*qq_obs_1RF.max()])
-        leg = plt.legend(loc=4, prop={'size':15})
+        leg = plt.legend(loc=4)
         leg.get_frame().set_linewidth(0.0)
-        plt.xlabel('Downscaled precipitation [mm]', size=18)
-        plt.ylabel('Observed precipitation [mm]', size=18)
+        plt.xlabel('Downscaled precipitation [mm]')
+        plt.ylabel('Observed precipitation [mm]')
+        fig.text(0.2, 0.9, "(d) %s" % (self._region_name), fontweight='semibold')
         fig.tight_layout()
-        plt.savefig('../../Figures/RF/QQ_plot_%s.png' % (self._region_name), format='PNG')
-        #plt.savefig('../../Figures/RF/QQ_plot_%s.pdf' % (self._region_name), format='PDF')
+        plt.savefig('../../Figures/RF/QQ_plot_%s.png' % (self._region_name), format='PNG', dpi=200)
+        #plt.savefig('../../Figures/RF/QQ_plot_%s.pdf' % (self._region_name), format='PDF', rasterized=True)
         #plt.savefig('../../Figures/RF/QQ_plot_%s.eps' % (self._region_name), format='EPS')
-        plt.show()
+        #plt.show()
 
         return
 
@@ -1257,7 +1275,7 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = [0.25, 0.5, 1]
-        fig = plt.figure(figsize=(6, 6))
+        fig = plt.figure()
 
         for i, iRes in enumerate(resolution):
             ROC_1RF = np.load('%s/ROC_statistics_%sdeg_P_%sdeg_%s_1RF.npz' % (self._path_RF_subregion, iRes, iRes, self._region_name))
@@ -1265,13 +1283,13 @@ class RandomForestsDownScaling(object):
             plt.plot(ROC_1RF['fpr'], ROC_1RF['tpr'], color=colors_1RF[i], linewidth=2.5, label='1RF_%s$^\circ$' % (iRes))
             plt.plot(ROC_2RF['fpr'], ROC_2RF['tpr'], color=colors_2RF[i], linewidth=2.5, label='2RF_%s$^\circ$' % (iRes))
 
-        plt.rc('font', family='Arial')
         plt.xlim([-0.05, 0.25])
-        plt.ylim([0.4, 1.05])
-        leg = plt.legend(loc=4, prop={'size':15})
+        plt.ylim([0.4, 1.09])
+        leg = plt.legend(loc=4)
         leg.get_frame().set_linewidth(0.0)
-        plt.xlabel('False Positive Ratio [-]', size=18)
-        plt.ylabel('True Positive Ratio [-]', size=18)
+        plt.xlabel('False Positive Ratio [-]')
+        plt.ylabel('True Positive Ratio [-]')
+        fig.text(0.2, 0.9, "(d) %s" % (self._region_name), fontweight='semibold')
         fig.tight_layout()
         plt.savefig('../../Figures/RF/ROC_%s.pdf' % (self._region_name), format='PDF')
         plt.savefig('../../Figures/RF/ROC_%s.eps' % (self._region_name), format='EPS')
@@ -1286,7 +1304,7 @@ class RandomForestsDownScaling(object):
         """
 
         resolution = [0.25, 0.5, 1]
-        fig = plt.figure(figsize=(6, 6))
+        fig = plt.figure()
 
         gamma_obs = np.load('%s/minSemivariance_obs_%s.npz' % (self._path_RF_subregion, self._region_name))
         for i, iRes in enumerate(resolution):
@@ -1295,15 +1313,15 @@ class RandomForestsDownScaling(object):
             plt.scatter(gamma_obs['gamma'], gamma_1RF['gamma'], marker='^', color=colors_1RF[i], label='1RF_%s$^\circ$' % (iRes), s=25)
             plt.scatter(gamma_obs['gamma'], gamma_2RF['gamma'], marker='p', color=colors_2RF[i], label='2RF_%s$^\circ$' % (iRes), s=25)
 
-        plt.rc('font', family='Arial')
         ylim_max = np.round(gamma_obs['gamma'].max()) + 1
         plt.xlim([0.05, ylim_max])
         plt.ylim([0.05, ylim_max])
         plt.plot([0, ylim_max], [0, ylim_max], '--k', linewidth=1.5)
-        leg = plt.legend(loc=2, prop={'size':15})
+        leg = plt.legend(loc=2)
         leg.get_frame().set_linewidth(0.0)
-        plt.xlabel('Observed semivariance (lag 1) [-]', size=18)
-        plt.ylabel('Downscaled semivariance (lag 1) [-]', size=18)
+        plt.xlabel('Observed semivariance (lag 1) [-]')
+        plt.ylabel('Downscaled semivariance (lag 1) [-]')
+        plt.title("(d) %s" % (self._region_name), fontweight='semibold')
         fig.tight_layout()
         plt.savefig('../../Figures/RF/semivariance_scatter_%s.pdf' % (self._region_name), format='PDF')
         plt.savefig('../../Figures/RF/semivariance_scatter_%s.eps' % (self._region_name), format='EPS')
@@ -1341,14 +1359,14 @@ class RandomForestsDownScaling(object):
             axes[i].text(0.03, 0.85, "%s$^\circ$" % (iRes), fontsize=18, horizontalalignment='left', verticalalignment='center', transform=axes[i].transAxes)
             axes[i].set_axis_bgcolor('#E0E0E0')
             
-        leg = axes[0].legend(loc=1, prop={'size':15})
+        leg = axes[0].legend(loc=1)
         leg.get_frame().set_linewidth(0.0)
         leg.get_frame().set_color('#E0E0E0')
-        axes[1].set_ylabel('Semivariance [-]', fontsize=18)
+        axes[1].set_ylabel('Semivariance [-]')
         axes[2].spines['bottom'].set_visible(True)
         axes[2].set_xticks(np.arange(0, eTime-sTime+1, 20))
-        axes[2].set_xticklabels(np.arange(sTime, eTime+1, 20), fontsize=15)
-        axes[2].set_xlabel('Time step [-]', fontsize=18)
+        axes[2].set_xticklabels(np.arange(sTime, eTime+1, 20))
+        axes[2].set_xlabel('Time step [-]')
         plt.subplots_adjust(hspace=0.05, left=0.06, right=0.97, bottom=0.12, top=0.96)
 
         plt.savefig('../../Figures/RF/semivariance_ts_%s.pdf' % (self._region_name), format='PDF')
