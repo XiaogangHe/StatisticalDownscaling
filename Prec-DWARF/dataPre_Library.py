@@ -171,6 +171,8 @@ class RandomForestsDownScaling(object):
         # Close access to all files
         ga("close 1")
 
+        os.system("mv *.bin %s" % (self._path_RF_subregion))
+
         return
 
     def subset_cov_UpDownSample(self, var):
@@ -326,9 +328,27 @@ class RandomForestsDownScaling(object):
 
         return dist_CONUS
 
+    def read_prec_Up_region(self, resolution=None):
+        """
+        This function is used to read the upsampled synthetic regional precipitation
+    
+        Args:
+            :resolution (str): coarse resolution 
+    
+        """
+
+        resolution = resolution or self._res_coarse
+
+        nlat_Up = self._nlat_fine/self._scaling_ratio + 1
+        nlon_Up = self._nlon_fine/self._scaling_ratio + 1
+        prec_Up_region = np.fromfile('%s/prec_Up_%sdeg_2011_JJA_%s_bi-linear.bin' % \
+                (self._path_RF_subregion, resolution, self._region_name),'float32').reshape(-1, nlat_Up, nlon_Up)[:self._ntime]
+
+        return prec_Up_region
+
     def read_prec_UpDown_region(self, resolution=None):
         """
-        This function is used to read the synthetic regional precipitation
+        This function is used to read the upsampled-downsampled synthetic regional precipitation
     
         Args:
             :resolution (str): coarse resolution 
