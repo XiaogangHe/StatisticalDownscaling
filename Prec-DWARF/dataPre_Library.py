@@ -137,6 +137,42 @@ class RandomForestsDownScaling(object):
 
         return
 
+    def subset_prec_UpSample(self):
+        """
+        Extract the sub-region of upsampled precipitation from CONUS using PyGrads
+
+        """
+
+        # Open access to the file
+        nlat_coarse = self._nlat_fine/self._scaling_ratio + 2
+        nlon_coarse = self._nlon_fine/self._scaling_ratio + 1
+
+        ga("open %s/%s" % (self._path_NLDAS2, self._ctl_file['dynamic'])) 
+
+        # Set to new region
+        ga("set lat %s %s" % (self._minlat, self._maxlat+self._res_fine)) 
+        ga("set lon %s %s" % (self._minlon, self._maxlon+self._res_fine)) 
+
+        #ga("define mask=const(apcpsfc, 1)")
+        ga("set time %s %s" % (self._stime.strftime("%Hz%d%b"), self._ftime.strftime("%Hz%d%b")))
+
+        # Upsample 
+        ga("define up=re(apcpsfc, %s, linear, %s, %s, %s, linear, %s, %s, ba)" \
+                % (nlon_coarse, self._minlon, self._res_coarse, nlat_coarse, self._minlat, self._res_coarse)) 
+
+        # Output the data 
+        ga("set lat %s %s" % (self._minlat, self._maxlat)) 
+        ga("set lon %s %s" % (self._minlon, self._maxlon)) 
+        ga("set gxout fwrite")
+        ga("set fwrite prec_Up_%sdeg_2011_JJA_%s_bi-linear.bin" % (self._res_coarse, self._region_name))
+        ga("d up")
+        ga("disable fwrite")
+
+        # Close access to all files
+        ga("close 1")
+
+        return
+
     def subset_cov_UpDownSample(self, var):
         """
         Extract the sub-region synthetic covariates from CONUS using PyGrads through the upsampling and downsampling
@@ -873,6 +909,81 @@ class RandomForestsDownScaling(object):
     def imshow_prec_obs_pre(self, prec_obs, prec_pred, itime=0, vmax=None, vmin=0, title=None):
         """
         Plot observed and downscaled precipitation using customized color table
+
+        Args:
+            :itime (int): ith time step
+            :vmax (float): max value for colorbar 
+    
+        """
+
+        # Plot
+        from mpl_toolkits.axes_grid1 import AxesGrid
+
+        cmap = self.cmap_customized()
+        fig = plt.figure(figsize=(20, 8))
+
+        # Show the spatial pattern for observed precipitation
+        ax_obs      = fig.add_axes([0.01, 0.3, 0.35, 0.35])    # SWUS
+        #ax_obs      = fig.add_axes([0.01, 0.3, 0.45, 0.45])        # SEUS
+        #ax_obs      = fig.add_axes([0.01, 0.3, 0.45, 0.45])        # NEUS
+        #ax_obs      = fig.add_axes([0.01, 0.3, 0.4, 0.4])        # CUS
+        # M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
+        M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
+        M.ax = ax_obs
+        M.imshow(np.ma.masked_equal(prec_obs[itime], -9.99e+08), 
+                   cmap=cmap, 
+                   interpolation='nearest', 
+                   vmin=vmin, 
+                   vmax=vmax) 
+        ax_obs.text(0.05, 0.05, 'Obs', transform=ax_obs.transAxes, fontweight='semibold')
+        #ax_obs.text(0.8, 0.05, 'Obs', transform=ax_obs.transAxes, fontweight='semibold')    # NEUS
+        M.drawcoastlines()
+        M.drawcountries(linewidth=2)
+        M.drawstates()
+
+        # Show the spatial pattern for downscaled precipitation (6 experiments)
+        labels = ['1RF_0.25$^\circ$', '1RF_0.5$^\circ$', '1RF_1$^\circ$', '2RF_0.25$^\circ$', '2RF_0.5$^\circ$', '2RF_1$^\circ$']
+        grid = AxesGrid(fig, [0.3, 0.01, 0.6, 0.95],    # SWUS
+        # grid = AxesGrid(fig, [0.31, 0.01, 0.6, 0.95],     # SEUS
+        # grid = AxesGrid(fig, [0.335, 0.01, 0.6, 0.95],     # NEUS
+        #grid = AxesGrid(fig, [0.325, 0.01, 0.6, 0.95],     # CUS
+                nrows_ncols=(2, 3),
+                axes_pad=0.15,
+                label_mode='L',
+                cbar_mode='single',
+                cbar_pad=0.25,
+                cbar_size=0.25,
+                cbar_location='right',
+                share_all=True,
+                )
+
+        for nt in range(6):
+            ax = grid[nt]
+            M.ax = ax
+            cs = M.imshow(np.ma.masked_equal(prec_pred[nt][itime], -9.99e+08), 
+                       cmap=cmap, 
+                       interpolation='nearest', 
+                       vmin=vmin, 
+                       vmax=vmax) 
+            ax.text(0.05, 0.05, labels[nt], transform=ax.transAxes, fontweight='semibold')
+            #ax.text(0.55, 0.05, labels[nt], transform=ax.transAxes, fontweight='semibold')    # NEUS
+            M.drawcountries(linewidth=2)
+            M.drawcoastlines()
+            M.drawstates()
+
+        # fig.text(0.1, 0.75, "(a)", horizontalalignment='center', fontsize=25, fontweight='bold')
+        # fig.text(0.155, 0.22, "2011.06.26.(847)", horizontalalignment='left', fontsize=25)    # NEUS
+        cbar = fig.colorbar(cs, cax=grid.cbar_axes[0], orientation='vertical', extend='both')
+        cbar.set_label('[mm]', position=(1, 1), rotation=0)
+
+        plt.savefig('../../Figures/RF/spatial_obs_1RF_2RF_%s.pdf' % (self._region_name), format='PDF')
+        plt.savefig('../../Figures/RF/spatial_obs_1RF_2RF_%s.eps' % (self._region_name), format='EPS')
+
+        plt.show()
+
+    def imshow_prec_obs_syn_pre(self, prec_obs, prec_pred, itime=0, vmax=None, vmin=0, title=None):
+        """
+        Plot observed, upscaled and downscaled precipitation using customized color table
 
         Args:
             :itime (int): ith time step
