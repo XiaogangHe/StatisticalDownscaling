@@ -339,12 +339,12 @@ class RandomForestsDownScaling(object):
 
         resolution = resolution or self._res_coarse
 
-        nlat_Up = self._nlat_fine/self._scaling_ratio + 1
-        nlon_Up = self._nlon_fine/self._scaling_ratio + 1
-        prec_Up_region = np.fromfile('%s/prec_Up_%sdeg_2011_JJA_%s_bi-linear.bin' % \
-                (self._path_RF_subregion, resolution, self._region_name),'float32').reshape(-1, nlat_Up, nlon_Up)[:self._ntime]
+        nlat_up = self._nlat_fine*self._res_fine/resolution + 1
+        nlon_up = self._nlon_fine*self._res_fine/resolution + 1
+        prec_up_region = np.fromfile('%s/prec_Up_%sdeg_2011_JJA_%s_bi-linear.bin' % \
+                (self._path_RF_subregion, resolution, self._region_name),'float32').reshape(-1, nlat_up, nlon_up)[:self._ntime]
 
-        return prec_Up_region
+        return prec_up_region
 
     def read_prec_UpDown_region(self, resolution=None):
         """
@@ -910,21 +910,22 @@ class RandomForestsDownScaling(object):
         # plt.savefig('../../Figures/Animation/%s_SEUS_adjacent_0.5deg_bi-linear_%s.png' % (title, i), format='PNG')
         plt.show()
 
-    def read_prec_obs_pre(self):
+    def read_prec_obs_up_pre(self):
         """
-        Read observed and downscaled precipitation (6 experiments)
+        Read observed, upscaled (3 experiments) and downscaled precipitation (6 experiments)
     
         """
 
         # Read data
         resolution = [0.25, 0.5, 1]
 
+        prec_obs = self.prepare_prec_fine()
+        prec_up = [self.read_prec_Up_region(iRes) for iRes in resolution]
         prec_pred_1RF = np.array([self.read_prec_downscaled(iRes, RF_seperate=False) for iRes in resolution])
         prec_pred_2RF = np.array([self.read_prec_downscaled(iRes, RF_seperate=True) for iRes in resolution])
         prec_pred = np.vstack((prec_pred_1RF, prec_pred_2RF))
-        prec_obs = self.prepare_prec_fine()
 
-        return prec_obs, prec_pred
+        return prec_obs, prec_up, prec_pred
 
     def imshow_prec_obs_pre(self, prec_obs, prec_pred, itime=0, vmax=None, vmin=0, title=None):
         """
