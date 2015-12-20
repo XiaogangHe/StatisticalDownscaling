@@ -640,15 +640,15 @@ class RandomForestsDownScaling(object):
         resolution = resolution or self._res_coarse
 
         if RF_seperate == True:
-            prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
-                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine) # SWUS, NEUS, SEUS
             #prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
-            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)  # CUS 
+            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine) # SWUS, NEUS, SEUS
+            prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
+                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)  # CUS 
         else:
-            prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
-                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine) # SWUS, NEUS, SEUS
             #prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
-            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)  # CUS
+            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine) # SWUS, NEUS, SEUS
+            prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
+                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)  # CUS
 
         return prec_downscaled
 
@@ -927,81 +927,6 @@ class RandomForestsDownScaling(object):
 
         return prec_obs, prec_up, prec_pred
 
-    def imshow_prec_obs_pre(self, prec_obs, prec_pred, itime=0, vmax=None, vmin=0, title=None):
-        """
-        Plot observed and downscaled precipitation using customized color table
-
-        Args:
-            :itime (int): ith time step
-            :vmax (float): max value for colorbar 
-    
-        """
-
-        # Plot
-        from mpl_toolkits.axes_grid1 import AxesGrid
-
-        cmap = self.cmap_customized()
-        fig = plt.figure(figsize=(20, 8))
-
-        # Show the spatial pattern for observed precipitation
-        ax_obs      = fig.add_axes([0.01, 0.3, 0.35, 0.35])    # SWUS
-        #ax_obs      = fig.add_axes([0.01, 0.3, 0.45, 0.45])        # SEUS
-        #ax_obs      = fig.add_axes([0.01, 0.3, 0.45, 0.45])        # NEUS
-        #ax_obs      = fig.add_axes([0.01, 0.3, 0.4, 0.4])        # CUS
-        # M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
-        M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
-        M.ax = ax_obs
-        M.imshow(np.ma.masked_equal(prec_obs[itime], -9.99e+08), 
-                   cmap=cmap, 
-                   interpolation='nearest', 
-                   vmin=vmin, 
-                   vmax=vmax) 
-        ax_obs.text(0.05, 0.05, 'Obs', transform=ax_obs.transAxes, fontweight='semibold')
-        #ax_obs.text(0.8, 0.05, 'Obs', transform=ax_obs.transAxes, fontweight='semibold')    # NEUS
-        M.drawcoastlines()
-        M.drawcountries(linewidth=2)
-        M.drawstates()
-
-        # Show the spatial pattern for downscaled precipitation (6 experiments)
-        labels = ['1RF_0.25$^\circ$', '1RF_0.5$^\circ$', '1RF_1$^\circ$', '2RF_0.25$^\circ$', '2RF_0.5$^\circ$', '2RF_1$^\circ$']
-        grid = AxesGrid(fig, [0.3, 0.01, 0.6, 0.95],    # SWUS
-        # grid = AxesGrid(fig, [0.31, 0.01, 0.6, 0.95],     # SEUS
-        # grid = AxesGrid(fig, [0.335, 0.01, 0.6, 0.95],     # NEUS
-        #grid = AxesGrid(fig, [0.325, 0.01, 0.6, 0.95],     # CUS
-                nrows_ncols=(2, 3),
-                axes_pad=0.15,
-                label_mode='L',
-                cbar_mode='single',
-                cbar_pad=0.25,
-                cbar_size=0.25,
-                cbar_location='right',
-                share_all=True,
-                )
-
-        for nt in range(6):
-            ax = grid[nt]
-            M.ax = ax
-            cs = M.imshow(np.ma.masked_equal(prec_pred[nt][itime], -9.99e+08), 
-                       cmap=cmap, 
-                       interpolation='nearest', 
-                       vmin=vmin, 
-                       vmax=vmax) 
-            ax.text(0.05, 0.05, labels[nt], transform=ax.transAxes, fontweight='semibold')
-            #ax.text(0.55, 0.05, labels[nt], transform=ax.transAxes, fontweight='semibold')    # NEUS
-            M.drawcountries(linewidth=2)
-            M.drawcoastlines()
-            M.drawstates()
-
-        # fig.text(0.1, 0.75, "(a)", horizontalalignment='center', fontsize=25, fontweight='bold')
-        # fig.text(0.155, 0.22, "2011.06.26.(847)", horizontalalignment='left', fontsize=25)    # NEUS
-        cbar = fig.colorbar(cs, cax=grid.cbar_axes[0], orientation='vertical', extend='both')
-        cbar.set_label('[mm]', position=(1, 1), rotation=0)
-
-        plt.savefig('../../Figures/RF/spatial_obs_1RF_2RF_%s.pdf' % (self._region_name), format='PDF')
-        plt.savefig('../../Figures/RF/spatial_obs_1RF_2RF_%s.eps' % (self._region_name), format='EPS')
-
-        plt.show()
-
     def add_inner_title(self, ax, title, loc, size=None, fontweight=None, **kwargs):
         from matplotlib.offsetbox import AnchoredText
         from matplotlib.patheffects import withStroke
@@ -1063,7 +988,7 @@ class RandomForestsDownScaling(object):
                    vmin=vmin, 
                    vmax=vmax,
                    aspect='auto') 
-        t = self.add_inner_title(ax_obs, 'Obs_0.125$^\circ$', size=12, loc=label_loc)
+        t = self.add_inner_title(ax_obs, 'Obs_0.125$^\circ$', size=18, loc=label_loc)
         t.patch.set_alpha(0.5)
         M.drawcoastlines()
         M.drawcountries(linewidth=2)
@@ -1079,7 +1004,7 @@ class RandomForestsDownScaling(object):
                        vmin=vmin, 
                        vmax=vmax,
                        aspect='auto') 
-            t = self.add_inner_title(ax, labels_up[nt], size=12, loc=label_loc)
+            t = self.add_inner_title(ax, labels_up[nt], size=18, loc=label_loc)
             t.patch.set_alpha(0.5)
             M.drawcountries(linewidth=2)
             M.drawcoastlines()
@@ -1095,7 +1020,7 @@ class RandomForestsDownScaling(object):
                        vmin=vmin, 
                        vmax=vmax, 
                        aspect='auto') 
-            t = self.add_inner_title(ax, labels[nt-3], size=12, loc=label_loc)
+            t = self.add_inner_title(ax, labels[nt-3], size=18, loc=label_loc)
             t.patch.set_alpha(0.5)
             M.drawcountries(linewidth=2)
             M.drawcoastlines()
@@ -1468,26 +1393,31 @@ class RandomForestsDownScaling(object):
     
         """
 
+        from matplotlib.ticker import FormatStrFormatter
+
         resolution = [0.25, 0.5, 1]
         fig = plt.figure()
+        ax = fig.add_axes([0.12, 0.1, 0.85, 0.85])
 
         gamma_obs = np.load('%s/minSemivariance_obs_%s.npz' % (self._path_RF_subregion, self._region_name))
         for i, iRes in enumerate(resolution):
             gamma_1RF = np.load('%s/minSemivariance_downscaled_%s_%sdeg_P_%sdeg_1RF.npz' % (self._path_RF_subregion, self._region_name, iRes, iRes))
             gamma_2RF = np.load('%s/minSemivariance_downscaled_%s_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, self._region_name, iRes, iRes))
-            plt.scatter(gamma_obs['gamma'], gamma_1RF['gamma'], marker='^', color=colors_1RF[i], label='1RF_%s$^\circ$' % (iRes), s=25)
-            plt.scatter(gamma_obs['gamma'], gamma_2RF['gamma'], marker='p', color=colors_2RF[i], label='2RF_%s$^\circ$' % (iRes), s=25)
+            plt.scatter(gamma_1RF['gamma'], gamma_obs['gamma'], marker='^', color=colors_1RF[i], label='1RF_%s$^\circ$' % (iRes), s=25)
+            plt.scatter(gamma_2RF['gamma'], gamma_obs['gamma'], marker='p', color=colors_2RF[i], label='2RF_%s$^\circ$' % (iRes), s=25)
 
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%0.1f'))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%0.1f'))
         ylim_max = np.round(gamma_obs['gamma'].max()) + 1
-        plt.xlim([0.05, ylim_max])
-        plt.ylim([0.05, ylim_max])
-        plt.plot([0, ylim_max], [0, ylim_max], '--k', linewidth=1.5)
-        leg = plt.legend(loc=2)
+        ax.set_xlim([0.05, ylim_max])
+        ax.set_ylim([0.05, ylim_max])
+        ax.plot([0, ylim_max], [0, ylim_max], '--k', linewidth=1.5)
+        leg = plt.legend(loc=4)
         leg.get_frame().set_linewidth(0.0)
-        plt.xlabel('Observed semivariance (lag 1) [-]')
-        plt.ylabel('Downscaled semivariance (lag 1) [-]')
-        plt.title("(d) %s" % (self._region_name), fontweight='semibold')
-        fig.tight_layout()
+        ax.set_xlabel('Downscaled semivariance (lag 1) [-]')
+        ax.set_ylabel('Observed semivariance (lag 1) [-]')
+        fig.text(0.15, 0.9, "(d) %s" % (self._region_name), fontweight='semibold')
+        #fig.tight_layout()
         plt.savefig('../../Figures/RF/semivariance_scatter_%s.pdf' % (self._region_name), format='PDF')
         plt.savefig('../../Figures/RF/semivariance_scatter_%s.eps' % (self._region_name), format='EPS')
         plt.show()
