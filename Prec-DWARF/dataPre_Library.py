@@ -1016,7 +1016,7 @@ class RandomForestsDownScaling(object):
         #at.txt._text.set_path_effects([withStroke(foreground="w", linewidth=2)])
         return at
 
-    def imshow_prec_obs_up_pre(self, prec_obs, prec_up, prec_pred, itime=0, vmin=0, title=None):
+    def imshow_prec_obs_up_pre(self, prec_obs, prec_up, prec_pred, itime=0, vmin=0, title=None, label_loc=4):
         """
         Plot observed, upscaled and downscaled precipitation using customized color table
 
@@ -1040,9 +1040,9 @@ class RandomForestsDownScaling(object):
         wspace = 0
         hspace = 0
         fig_left = 0.05
-        fig_right = 0.75
+        fig_right = 0.65
         fig_bottom = 0.05
-        fig_top = fig_width*(fig_right-fig_left)/4*3/fig_height+fig_bottom    # Need to scale according to the fig size
+        fig_top = fig_width*(fig_right-fig_left)*3*self._nlat_fine/4/self._nlon_fine/fig_height+fig_bottom    # Need to scale according to the fig size
 
         gs = gridspec.GridSpec(nrow, ncol)
         gs.update(wspace=wspace, hspace=hspace, left=fig_left, right=fig_right, bottom=fig_bottom, top=fig_top)
@@ -1061,8 +1061,9 @@ class RandomForestsDownScaling(object):
                    cmap=cmap, 
                    interpolation='nearest', 
                    vmin=vmin, 
-                   vmax=vmax) 
-        t = self.add_inner_title(ax_obs, 'Obs', size=20, loc=4)
+                   vmax=vmax,
+                   aspect='auto') 
+        t = self.add_inner_title(ax_obs, 'Obs_0.125$^\circ$', size=12, loc=label_loc)
         t.patch.set_alpha(0.5)
         M.drawcoastlines()
         M.drawcountries(linewidth=2)
@@ -1076,8 +1077,9 @@ class RandomForestsDownScaling(object):
                        cmap=cmap, 
                        interpolation='nearest', 
                        vmin=vmin, 
-                       vmax=vmax) 
-            t = self.add_inner_title(ax, labels_up[nt], size=20, loc=4)
+                       vmax=vmax,
+                       aspect='auto') 
+            t = self.add_inner_title(ax, labels_up[nt], size=12, loc=label_loc)
             t.patch.set_alpha(0.5)
             M.drawcountries(linewidth=2)
             M.drawcoastlines()
@@ -1091,8 +1093,9 @@ class RandomForestsDownScaling(object):
                        cmap=cmap, 
                        interpolation='nearest', 
                        vmin=vmin, 
-                       vmax=vmax) 
-            t = self.add_inner_title(ax, labels[nt-3], size=20, loc=4)
+                       vmax=vmax, 
+                       aspect='auto') 
+            t = self.add_inner_title(ax, labels[nt-3], size=12, loc=label_loc)
             t.patch.set_alpha(0.5)
             M.drawcountries(linewidth=2)
             M.drawcoastlines()
