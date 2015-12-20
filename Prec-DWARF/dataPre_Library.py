@@ -1002,7 +1002,21 @@ class RandomForestsDownScaling(object):
 
         plt.show()
 
-    def imshow_prec_obs_syn_pre(self, prec_obs, prec_pred, itime=0, vmax=None, vmin=0, title=None):
+    def add_inner_title(self, ax, title, loc, size=None, fontweight=None, **kwargs):
+        from matplotlib.offsetbox import AnchoredText
+        from matplotlib.patheffects import withStroke
+        if size is None:
+            size = dict(size=plt.rcParams['legend.fontsize'])
+        else:
+            size = dict(size=size, fontweight='semibold')
+        at = AnchoredText(title, loc=loc, prop=size,
+                          pad=0., borderpad=0.5,
+                          frameon=False, **kwargs)
+        ax.add_artist(at)
+        #at.txt._text.set_path_effects([withStroke(foreground="w", linewidth=2)])
+        return at
+
+    def imshow_prec_obs_up_pre(self, prec_obs, prec_up, prec_pred, itime=0, vmin=0, title=None):
         """
         Plot observed, upscaled and downscaled precipitation using customized color table
 
@@ -1012,18 +1026,35 @@ class RandomForestsDownScaling(object):
     
         """
 
-        # Plot
-        from mpl_toolkits.axes_grid1 import AxesGrid
+        # Plot settings
+        import matplotlib.gridspec as gridspec
+        labels = ['1RF_0.25$^\circ$', '1RF_0.5$^\circ$', '1RF_1$^\circ$', '2RF_0.25$^\circ$', '2RF_0.5$^\circ$', '2RF_1$^\circ$']
+        labels_up = ['Up_0.25$^\circ$', 'Up_0.5$^\circ$', 'Up_1$^\circ$']
 
         cmap = self.cmap_customized()
-        fig = plt.figure(figsize=(20, 8))
+        fig_width = 16
+        fig_height = 9
+        fig = plt.figure(figsize=(fig_width, fig_height))
+        nrow = 3
+        ncol = 4
+        wspace = 0
+        hspace = 0
+        fig_left = 0.05
+        fig_right = 0.75
+        fig_bottom = 0.05
+        fig_top = fig_width*(fig_right-fig_left)/4*3/fig_height+fig_bottom    # Need to scale according to the fig size
+
+        gs = gridspec.GridSpec(nrow, ncol)
+        gs.update(wspace=wspace, hspace=hspace, left=fig_left, right=fig_right, bottom=fig_bottom, top=fig_top)
+        ax_obs = plt.subplot(gs[1, 0])
+        ax_sim = [plt.subplot(gs[i, j]) for i in range(3) for j in range(1,4)]
+        gs2 = gridspec.GridSpec(3, 1)
+        gs2.update(bottom=fig_bottom, left=fig_right+0.005, right=fig_right+0.02, top=fig_top)
+        ax_cbar = plt.subplot(gs2[:, -1])
+
+        vmax = prec_obs[itime].max()
 
         # Show the spatial pattern for observed precipitation
-        ax_obs      = fig.add_axes([0.01, 0.3, 0.35, 0.35])    # SWUS
-        #ax_obs      = fig.add_axes([0.01, 0.3, 0.45, 0.45])        # SEUS
-        #ax_obs      = fig.add_axes([0.01, 0.3, 0.45, 0.45])        # NEUS
-        #ax_obs      = fig.add_axes([0.01, 0.3, 0.4, 0.4])        # CUS
-        # M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
         M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
         M.ax = ax_obs
         M.imshow(np.ma.masked_equal(prec_obs[itime], -9.99e+08), 
@@ -1031,49 +1062,48 @@ class RandomForestsDownScaling(object):
                    interpolation='nearest', 
                    vmin=vmin, 
                    vmax=vmax) 
-        ax_obs.text(0.05, 0.05, 'Obs', transform=ax_obs.transAxes, fontweight='semibold')
-        #ax_obs.text(0.8, 0.05, 'Obs', transform=ax_obs.transAxes, fontweight='semibold')    # NEUS
+        t = self.add_inner_title(ax_obs, 'Obs', size=20, loc=4)
+        t.patch.set_alpha(0.5)
         M.drawcoastlines()
         M.drawcountries(linewidth=2)
         M.drawstates()
 
-        # Show the spatial pattern for downscaled precipitation (6 experiments)
-        labels = ['1RF_0.25$^\circ$', '1RF_0.5$^\circ$', '1RF_1$^\circ$', '2RF_0.25$^\circ$', '2RF_0.5$^\circ$', '2RF_1$^\circ$']
-        grid = AxesGrid(fig, [0.3, 0.01, 0.6, 0.95],    # SWUS
-        # grid = AxesGrid(fig, [0.31, 0.01, 0.6, 0.95],     # SEUS
-        # grid = AxesGrid(fig, [0.335, 0.01, 0.6, 0.95],     # NEUS
-        #grid = AxesGrid(fig, [0.325, 0.01, 0.6, 0.95],     # CUS
-                nrows_ncols=(2, 3),
-                axes_pad=0.15,
-                label_mode='L',
-                cbar_mode='single',
-                cbar_pad=0.25,
-                cbar_size=0.25,
-                cbar_location='right',
-                share_all=True,
-                )
-
-        for nt in range(6):
-            ax = grid[nt]
+        # Show the spatial pattern for upscaled precipitation (3 experiments)
+        for nt in range(3):
+            ax = ax_sim[nt]
             M.ax = ax
-            cs = M.imshow(np.ma.masked_equal(prec_pred[nt][itime], -9.99e+08), 
+            cs = M.imshow(np.ma.masked_equal(prec_up[nt][itime], -9.99e+08), 
                        cmap=cmap, 
                        interpolation='nearest', 
                        vmin=vmin, 
                        vmax=vmax) 
-            ax.text(0.05, 0.05, labels[nt], transform=ax.transAxes, fontweight='semibold')
-            #ax.text(0.55, 0.05, labels[nt], transform=ax.transAxes, fontweight='semibold')    # NEUS
+            t = self.add_inner_title(ax, labels_up[nt], size=20, loc=4)
+            t.patch.set_alpha(0.5)
             M.drawcountries(linewidth=2)
             M.drawcoastlines()
             M.drawstates()
 
-        # fig.text(0.1, 0.75, "(a)", horizontalalignment='center', fontsize=25, fontweight='bold')
-        # fig.text(0.155, 0.22, "2011.06.26.(847)", horizontalalignment='left', fontsize=25)    # NEUS
-        cbar = fig.colorbar(cs, cax=grid.cbar_axes[0], orientation='vertical', extend='both')
-        cbar.set_label('[mm]', position=(1, 1), rotation=0)
+        # Show the spatial pattern for downscaled precipitation (6 experiments)
+        for nt in range(3,9):
+            ax = ax_sim[nt]
+            M.ax = ax
+            cs = M.imshow(np.ma.masked_equal(prec_pred[nt-3][itime], -9.99e+08), 
+                       cmap=cmap, 
+                       interpolation='nearest', 
+                       vmin=vmin, 
+                       vmax=vmax) 
+            t = self.add_inner_title(ax, labels[nt-3], size=20, loc=4)
+            t.patch.set_alpha(0.5)
+            M.drawcountries(linewidth=2)
+            M.drawcoastlines()
+            M.drawstates()
 
-        plt.savefig('../../Figures/RF/spatial_obs_1RF_2RF_%s.pdf' % (self._region_name), format='PDF')
-        plt.savefig('../../Figures/RF/spatial_obs_1RF_2RF_%s.eps' % (self._region_name), format='EPS')
+        cbar = plt.colorbar(cs, cax=ax_cbar, extend='both')
+        cbar.set_label('[mm]', position=(1, 1), rotation=0, fontsize=20)
+        cbar.ax.tick_params(labelsize=20)
+
+        plt.savefig('../../Figures/RF/spatial_obs_up_1RF_2RF_%s.pdf' % (self._region_name), format='PDF')
+        plt.savefig('../../Figures/RF/spatial_obs_up_1RF_2RF_%s.eps' % (self._region_name), format='EPS')
 
         plt.show()
 
