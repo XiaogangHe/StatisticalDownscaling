@@ -640,15 +640,15 @@ class RandomForestsDownScaling(object):
         resolution = resolution or self._res_coarse
 
         if RF_seperate == True:
-            #prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
-            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine) # SWUS, NEUS, SEUS
             prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
-                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)  # CUS 
+                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine) # SWUS, NEUS, SEUS
+            #prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_2RF.bin' % 
+            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)  # CUS 
         else:
-            #prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
-            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine) # SWUS, NEUS, SEUS
             prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
-                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)  # CUS
+                              (self._path_RF_subregion, self._region_name, resolution, resolution),'float64').reshape(-1, self._nlat_fine, self._nlon_fine) # SWUS, NEUS, SEUS
+            #prec_downscaled = np.fromfile('%s/prec_prediction_%s_RF_adjacent_LargeMeteo_%sdeg_P_%sdeg_1RF.bin' % 
+            #                  (self._path_RF_subregion, self._region_name, resolution, resolution),'float32').reshape(-1, self._nlat_fine, self._nlon_fine)  # CUS
 
         return prec_downscaled
 
@@ -693,6 +693,42 @@ class RandomForestsDownScaling(object):
 
         return dist, gamma, dist_fit, gamma_fit
         return {'dist':dist, 'gamma':gamma, 'dist_fit':dist_fit, 'gamma_fit':gamma_fit}
+
+    def compute_variogram_temporal(self, data, igrid):
+        """
+        Compute the temporal semi-variogram using R's 'gstat' package
+
+        Input:  data: 3-d array (time, lat, lon)
+                igrid (int): ith grid cell
+        """
+
+        ##### Load R packages
+        r('library("gstat")')
+        r('library("sp")')
+
+        timestep = np.arange(self._ntime)
+        
+        data = data.reshape(self._ntime, -1)[:, igrid]
+        ind = (data != -9.99e+08) & (data != 0)
+        data = data[ind]
+        timestep = timestep[ind]
+
+        if data.shape[0] == 0:
+            return np.nan
+        if data.shape[0] == 1:
+            return np.nan
+        else:
+            ##### Convert numpy to R format
+            r.assign("data", data)
+            r.assign("timestep", timestep)
+
+            ##### Fit variogram
+            r("d = data.frame(x=timestep, y=rep(0,length(timestep)), prec=data)")
+            r("coordinates(d)<-~x+y")
+            r('vg <- variogram(prec~1, d, width=1, cutoff=1)')
+            gamma = np.array(r("vg$gamma")).tolist()[0]
+
+            return gamma
 
     def score_RMSE_R2(self, resolution=None):
         """
@@ -825,7 +861,7 @@ class RandomForestsDownScaling(object):
 
     def score_minSemivariance(self, pre, resolution=None):
         """
-        Use this function to output the first point of semivariogram 
+        Use this function to output the first point of the spatial semivariogram 
 
         Args:
             :pre (array): 3d precipitation
@@ -838,6 +874,52 @@ class RandomForestsDownScaling(object):
         np.savez('%s/minSemivariance_downscaled_%s_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), gamma=gamma) 
 
         return
+
+    def score_minSemivariance_temporal(self, pre, resolution=None):
+        """
+        Use this function to output the first point of the temporal semivariogram 
+
+        Args:
+            :pre (array): 3d precipitation
+    
+        """
+
+        resolution = resolution or self._res_coarse
+        gamma = []
+        for igrid in range(self._nlat_fine*self._nlon_fine):
+            if np.sum(pre.reshape(self._ntime, -1)[:, igrid]) !=0:
+                gamma.append(self.compute_variogram_temporal(pre, igrid))
+            else:
+                gamma.append(np.nan)
+
+        gamma = np.array(gamma).reshape(self._nlat_fine, self._nlon_fine)
+        #np.savez('%s/minSemivariance_temporal_obs_%s.npz' % (self._path_RF_subregion, self._region_name), gamma=gamma) 
+        np.savez('%s/minSemivariance_temporal_downscaled_%s_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), gamma=gamma) 
+
+        return gamma
+
+    def score_variance_conditional(self, pre, resolution=None):
+        """
+        Use this function to calculate the variance without 0 values 
+
+        Args:
+            :pre (array): 3d precipitation
+    
+        """
+
+        resolution = resolution or self._res_coarse
+        pre_temp = pre.reshape(self._ntime, -1)
+        var_con = []
+
+        for igrid in range(self._nlat_fine*self._nlon_fine):
+            ind = pre_temp[:, igrid] > 0
+            var_con.append(np.var(pre_temp[:, igrid][ind]))
+
+        var_con = np.array(var_con).reshape(self._nlat_fine, self._nlon_fine)
+        #np.savez('%s/varConditional_obs_%s.npz' % (self._path_RF_subregion, self._region_name), var_con=var_con) 
+        np.savez('%s/varConditional_downscaled_%s_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), var_con=var_con) 
+
+        return var_con
 
     def cmap_customized(self):
         """
@@ -1414,8 +1496,8 @@ class RandomForestsDownScaling(object):
         ax.plot([0, ylim_max], [0, ylim_max], '--k', linewidth=1.5)
         leg = plt.legend(loc=4)
         leg.get_frame().set_linewidth(0.0)
-        ax.set_xlabel('Downscaled semivariance (lag 1) [-]')
-        ax.set_ylabel('Observed semivariance (lag 1) [-]')
+        ax.set_xlabel('Downscaled semivariance (lag 1) [$mm^2$]')
+        ax.set_ylabel('Observed semivariance (lag 1) [$mm^2$]')
         fig.text(0.15, 0.9, "(d) %s" % (self._region_name), fontweight='semibold')
         #fig.tight_layout()
         plt.savefig('../../Figures/RF/semivariance_scatter_%s.pdf' % (self._region_name), format='PDF')
@@ -1457,7 +1539,7 @@ class RandomForestsDownScaling(object):
         leg = axes[0].legend(loc=1)
         leg.get_frame().set_linewidth(0.0)
         leg.get_frame().set_color('#E0E0E0')
-        axes[1].set_ylabel('Semivariance [-]')
+        axes[1].set_ylabel('Semivariance [$mm^2$]')
         axes[2].spines['bottom'].set_visible(True)
         axes[2].set_xticks(np.arange(0, eTime-sTime+1, 20))
         axes[2].set_xticklabels(np.arange(sTime, eTime+1, 20))
