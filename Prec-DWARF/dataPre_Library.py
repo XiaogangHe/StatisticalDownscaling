@@ -38,7 +38,7 @@ matplotlib.rc('font', **font)
 
 params = {'backend': 'ps',
           'axes.labelsize': 18,
-          'font.size': 22,
+          'font.size': 24,
           'legend.fontsize': 15,
           'xtick.labelsize': 15,
           'ytick.labelsize': 15,
@@ -894,7 +894,7 @@ class RandomForestsDownScaling(object):
 
         gamma = np.array(gamma).reshape(self._nlat_fine, self._nlon_fine)
         #np.savez('%s/minSemivariance_temporal_obs_%s.npz' % (self._path_RF_subregion, self._region_name), gamma=gamma) 
-        np.savez('%s/minSemivariance_temporal_downscaled_%s_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), gamma=gamma) 
+        np.savez('%s/minSemivariance_temporal_downscaled_%s_%sdeg_P_%sdeg_1RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), gamma=gamma) 
 
         return gamma
 
@@ -917,7 +917,7 @@ class RandomForestsDownScaling(object):
 
         var_con = np.array(var_con).reshape(self._nlat_fine, self._nlon_fine)
         #np.savez('%s/varConditional_obs_%s.npz' % (self._path_RF_subregion, self._region_name), var_con=var_con) 
-        np.savez('%s/varConditional_downscaled_%s_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), var_con=var_con) 
+        np.savez('%s/varConditional_downscaled_%s_%sdeg_P_%sdeg_1RF.npz' % (self._path_RF_subregion, self._region_name, resolution, resolution), var_con=var_con) 
 
         return var_con
 
@@ -933,6 +933,15 @@ class RandomForestsDownScaling(object):
         cmap.set_bad('0.8') 
  
         return cmap
+
+    def cmap_sns(self, N, base_cmap='RdBu_r'):
+        #import seaborn as sns
+        import seaborn.apionly as sns
+        #cmap_sns = colors.ListedColormap(sns.color_palette(base_cmap, N))
+        cmap_sns = colors.ListedColormap(sns.diverging_palette(240, 10, n=N))
+        cmap_sns.set_bad('0.8') 
+
+        return cmap_sns
 
     def imshow_prec_obs(self, obs, itime=0, vmax=None):
         """
@@ -1116,6 +1125,111 @@ class RandomForestsDownScaling(object):
         plt.savefig('../../Figures/RF/spatial_obs_up_1RF_2RF_%s.eps' % (self._region_name), format='EPS')
 
         plt.show()
+
+    def imshow_normSemi_percentage(self, title=None, label_loc=3):
+        """
+        Plot the spatial pattern of the relative percentage of the lag-1 temporal semivariance
+
+        Args:
+            :itime (int): ith time step
+            :vmax (float): max value for colorbar 
+    
+        """
+
+        # Plot settings
+        import matplotlib.gridspec as gridspec
+
+        resolution = [0.25, 0.5, 1]
+        labels = ['1RF_0.25$^\circ$', '1RF_0.5$^\circ$', '1RF_1$^\circ$', '2RF_0.25$^\circ$', '2RF_0.5$^\circ$', '2RF_1$^\circ$']
+
+        fig_width = 20
+        fig_height = 12
+        fig = plt.figure(figsize=(fig_width, fig_height))
+        nrow = 2 
+        ncol = 4
+        wspace = 0
+        hspace = 0
+        fig_left = 0.05
+        fig_right = 0.8
+        fig_bottom = 0.05
+        fig_top = fig_width*(fig_right-fig_left)*nrow*self._nlat_fine/ncol/self._nlon_fine/fig_height+fig_bottom    # Need to scale according to the fig size
+
+        gs = gridspec.GridSpec(nrow, ncol)
+        gs.update(wspace=wspace, hspace=hspace, left=fig_left, right=fig_right, bottom=fig_bottom, top=fig_top)
+        ax_sim = [plt.subplot(gs[i, j]) for i in range(nrow) for j in range(1,ncol)]
+        gs2 = gridspec.GridSpec(3, 1)
+        gs2.update(bottom=fig_bottom, left=fig_right+0.005, right=fig_right+0.02, top=fig_top)
+        ax_cbar = plt.subplot(gs2[:, -1])
+
+        # Get the temporal semivariance and conditional variance (observations)
+        gamma_obs = np.load('%s/minSemivariance_temporal_obs_%s.npz' % (self._path_RF_subregion, self._region_name))['gamma'] 
+        var_con_obs = np.load('%s/varConditional_obs_%s.npz' % (self._path_RF_subregion, self._region_name))['var_con'] 
+        gamma_norm_obs = gamma_obs/var_con_obs
+
+        # Get the temporal semivariance and conditional variance (6 experiments)
+        gamma_1RF = []
+        gamma_2RF = []
+        var_con_1RF = []
+        var_con_2RF = []
+
+        for i, iRes in enumerate(resolution):
+            gamma_1RF.append(np.load('%s/minSemivariance_temporal_downscaled_%s_%sdeg_P_%sdeg_1RF.npz' % (self._path_RF_subregion, self._region_name, iRes, iRes))['gamma'])
+            gamma_2RF.append(np.load('%s/minSemivariance_temporal_downscaled_%s_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, self._region_name, iRes, iRes))['gamma'])
+            var_con_1RF.append(np.load('%s/varConditional_downscaled_%s_%sdeg_P_%sdeg_1RF.npz' % (self._path_RF_subregion, self._region_name, iRes, iRes))['var_con'])
+            var_con_2RF.append(np.load('%s/varConditional_downscaled_%s_%sdeg_P_%sdeg_2RF.npz' % (self._path_RF_subregion, self._region_name, iRes, iRes))['var_con'])
+
+        gamma_norm_1RF = np.array([gamma_1RF[i]/var_con_1RF[i] for i in range(3)])
+        gamma_norm_2RF = np.array([gamma_2RF[i]/var_con_2RF[i] for i in range(3)])
+
+        #return gamma_obs, var_con_obs, gamma_1RF, gamma_2RF, var_con_1RF, var_con_2RF
+
+        # Show the spatial pattern for the 6 experiments
+        cmap = self.cmap_sns(8)
+        font = {'family' : 'CMU Sans Serif'}
+        matplotlib.rc('font', **font)
+        pylab.rcParams.update(params)
+        M = Basemap(resolution='l', llcrnrlat=self._minlat, urcrnrlat=self._maxlat, llcrnrlon=self._minlon, urcrnrlon=self._maxlon)
+        vmin = -80
+        vmax = 80
+        # For 1RF
+        for nt in range(3):
+            ax = ax_sim[nt]
+            M.ax = ax
+            cs = M.imshow(100*(gamma_norm_1RF[nt]/gamma_norm_obs-1), 
+                       cmap=cmap, 
+                       interpolation='nearest', 
+                       vmin=vmin, 
+                       vmax=vmax, 
+                       aspect='auto') 
+            t = self.add_inner_title(ax, labels[nt], size=24, loc=label_loc)
+            t.patch.set_alpha(0.5)
+            M.drawcountries(linewidth=2)
+            M.drawcoastlines()
+            M.drawstates()
+
+        # For 2RF
+        for nt in range(3):
+            ax = ax_sim[nt+3]
+            M.ax = ax
+            cs = M.imshow(100*(gamma_norm_2RF[nt]/gamma_norm_obs-1), 
+                       cmap=cmap, 
+                       interpolation='nearest', 
+                       vmin=vmin, 
+                       vmax=vmax, 
+                       aspect='auto') 
+            t = self.add_inner_title(ax, labels[nt+3], size=24, loc=label_loc)
+            t.patch.set_alpha(0.5)
+            M.drawcountries(linewidth=2)
+            M.drawcoastlines()
+            M.drawstates()
+
+        cbar = plt.colorbar(cs, cax=ax_cbar, extend='both')
+        cbar.solids.set_edgecolor("face")
+        cbar.set_label('[%]', position=(1.05, 1.05), rotation=0, fontsize=20)
+        cbar.ax.tick_params(labelsize=20)
+
+        plt.savefig('../../Figures/RF/temporal_normSemivariance_1RF_2RF_%s.pdf' % (self._region_name), format='PDF')
+        plt.savefig('../../Figures/RF/temporal_normSemivariance_1RF_2RF_%s.eps' % (self._region_name), format='EPS')
 
     def plot_R2_RMSE(self):
         """
